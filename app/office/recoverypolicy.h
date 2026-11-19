@@ -41,4 +41,10 @@ inline bool validResolution(int width, int height) {
            (width == 2560 && (height == 1440 || height == 1600)) ||
            (width == 3840 && height == 2160);
 }
+
+inline bool retryableHostStatus(bool previouslyConnected, int status) {
+    // Sunshine can be reachable before capture or its Desktop app is ready
+    // after a console-session transition. Pairing and request errors are final.
+    return previouslyConnected && status == 503;
+}
 }

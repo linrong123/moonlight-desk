@@ -1670,7 +1670,8 @@ bool Session::startConnectionAsync()
                 m_Office->mouseMode != office::MouseMode::Local);
         }
     } catch (const GfeHttpResponseException& e) {
-        if (m_Office) m_Office->retryable = false;
+        if (m_Office) m_Office->retryable = office::retryableHostStatus(
+            m_Office->everConnected, e.getStatusCode());
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
         return false;
     } catch (const QtNetworkReplyException& e) {

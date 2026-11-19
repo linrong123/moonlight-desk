@@ -29,6 +29,10 @@ int main() {
     assert(office::validResolution(3840, 2160));
     assert(!office::validResolution(0, 1080));
     assert(!office::validResolution(1920, -1));
+    assert(office::retryableHostStatus(true, 503));
+    assert(!office::retryableHostStatus(false, 503));
+    for (int status : {400, 401, 403, 404, 409})
+        assert(!office::retryableHostStatus(true, status));
     using office::MouseMode;
     using office::effectiveMouseMode;
     for (auto requested : {MouseMode::Local, MouseMode::Remote, MouseMode::Relative}) {
