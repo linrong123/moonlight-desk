@@ -13,7 +13,7 @@ int main(int argc,char** argv) {
     require(clean(QStringLiteral("Alice's MacBook Pro"))=="Alice's MacBook Pro");
     require(clean(QStringLiteral("  会议室 Mac\t "))==QStringLiteral("会议室 Mac").toUtf8());
     require(clean(QStringLiteral("Mac\x01\nBook\x7f"))=="MacBook");
-    require(clean(QString::fromUtf8("Mac\xc2\x85Book"))=="MacBook");                    // C1 NEL
+    require(clean(QString::fromUtf8("Mac\xc2\x85" "Book"))=="MacBook");                 // C1 NEL
     require(clean(QString::fromUtf8("evil\xe2\x80\xaetxt.app"))=="eviltxt.app");       // RLO bidi override
     require(clean(QString::fromUtf8("a\xe2\x80\x8b" "b\xe2\x80\xa8" "c"))=="abc");       // ZWSP, line separator
     QString surrogate=QStringLiteral("Mac"); surrogate+=QChar(0xD800); surrogate+=QStringLiteral("Book");
