@@ -754,6 +754,8 @@ int main(int argc, char *argv[])
     }
 
     QGuiApplication app(argc, argv);
+    // Display branding is independent of the persisted settings/cache identity.
+    QGuiApplication::setApplicationDisplayName("Moonlight Desk");
 
 #ifdef Q_OS_DARWIN
     // macOS defaults "Keyboard navigation" to text fields and lists only, which

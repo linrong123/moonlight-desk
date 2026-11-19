@@ -1,4 +1,4 @@
-name: Office macOS
+name: Desk macOS
 on:
   push:
     branches: [main]
@@ -30,8 +30,8 @@ jobs:
           bash office/macos/build.sh
       - uses: actions/upload-artifact@v6
         with:
-          name: MoonlightOffice-macOS-arm64
+          name: MoonlightDesk-macOS-arm64
           path: |
-            dist/MoonlightOffice-macOS-arm64.zip
+            dist/MoonlightDesk-macOS-arm64.zip
             dist/SHA256SUMS
           if-no-files-found: error

@@ -12,8 +12,8 @@
 - 光标安全切换策略测试：等待/失败时保留本地可见指针，仅在主机成功确认后启用远端/相对模式；原版主机保留兼容行为。
 - 独立 ARM64 包生成，111 个 Mach-O 文件的非系统依赖均包含在包内；深度严格签名校验通过；包内程序直接启动并输出 `MoonlightOffice 0.1.0`，正常退出。
 - 打包排除 Qt 自动附带但本项目不使用的 Mimer SQL 插件（它依赖外置商业客户端）；未改系统 Qt 或安装 SQL 客户端。最终包检查不允许遗留缺失依赖。
-- GitHub 干净 macOS ARM64 环境测试、打包、工件上传全部通过：[run 44502170708](https://github.com/linrong123/moonlight-office/actions/runs/44502170708)，源码提交 `0aae812f`，耗时 5 分 34 秒。
-- 最终代码 `3d671a8c`（包含解锁后 503 恢复和随包许可）再次通过完整云端流程：[run 44504375556](https://github.com/linrong123/moonlight-office/actions/runs/44504375556)。工件 `MoonlightOffice-macOS-arm64` 约 84.6 MB。本地包的 `SOURCE.json` 同样指向 `3d671a8c`，构建时 `working_tree_modified=false`，严格签名校验通过。
+- GitHub 干净 macOS ARM64 环境测试、打包、工件上传全部通过：[run 44502170708](https://github.com/linrong123/moonlight-desk/actions/runs/44502170708)，源码提交 `0aae812f`，耗时 5 分 34 秒。
+- 最终代码 `3d671a8c`（包含解锁后 503 恢复和随包许可）再次通过完整云端流程：[run 44504375556](https://github.com/linrong123/moonlight-desk/actions/runs/44504375556)。工件 `MoonlightOffice-macOS-arm64` 约 84.6 MB。本地包的 `SOURCE.json` 同样指向 `3d671a8c`，构建时 `working_tree_modified=false`，严格签名校验通过。
 - 实际打开独立应用，计算机列表、中文设置页与 0.1.0 版本显示正常，能通过快捷键进入设置并返回；没有连接远程电脑。
 - 本地 SDL 工具栏验证窗口已实际显示，鼠标/分辨率下拉及应用、全屏、统计、断开按钮均可见。
 - 在本地验证窗口实际选择 3840×2160 并点击应用，回调收到 `Resolution(3840,2160)`；切换远端鼠标，回调收到 `Mouse(Remote)`，菜单文字同步更新。

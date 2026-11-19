@@ -30,7 +30,7 @@
 
 ## 协议扩展
 
-Sunshine Office 在已配对 HTTPS `serverinfo` 宣告 `OfficeCursorSet=1`。客户端才会调用已认证 `office/cursor?visible=0|1`。请求设置目标值，不 toggle；重复请求不会反转。成功还需 XML `cursorVisible` 与目标一致。
+Sunshine Desk 在已配对 HTTPS `serverinfo` 宣告 `OfficeCursorSet=1`。客户端才会调用已认证 `office/cursor?visible=0|1`。请求设置目标值，不 toggle；重复请求不会反转。成功还需 XML `cursorVisible` 与目标一致。
 
 这是视频光标合成开关，不改变 Windows 本机指针，也不是光标形状传输协议。多观看者共享服务端状态，最后设置生效。未知能力主机不尝试该扩展。光标请求只允许一条执行、一条最新待发，旧返回不覆盖新状态。
 

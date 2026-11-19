@@ -1,6 +1,6 @@
-# Moonlight Office macOS 开发包：第三方许可与源码出处
+# Moonlight Desk macOS 开发包：第三方许可与源码出处
 
-本清单针对 `dist/MoonlightOffice.app` 的本地开发构建，基线为 Moonlight Qt **v6.2.0**、`moonlight-qt-deps` **v19**、Qt **6.11.2**。这里只整理可复核的原文与来源，不构成法律结论。尚未完成的材料列在文末；不能仅凭本文件宣称公开二进制分发材料已经齐备。
+本清单针对 `dist/MoonlightDesk.app` 的本地开发构建，基线为 Moonlight Qt **v6.2.0**、`moonlight-qt-deps` **v19**、Qt **6.11.2**。这里只整理可复核的原文与来源，不构成法律结论。尚未完成的材料列在文末；不能仅凭本文件宣称公开二进制分发材料已经齐备。
 
 ## 文件与证据
 
@@ -13,7 +13,7 @@
 
 ## 主项目与本仓库内代码
 
-Moonlight Qt v6.2.0 指向提交 [`de2467e433821664cdd2224aad8c89a625be1ad9`](https://github.com/moonlight-stream/moonlight-qt/tree/de2467e433821664cdd2224aad8c89a625be1ad9)，根许可证为 GNU GPL v3。Moonlight Office 的修改和完整上游历史已经公开在 [本项目](https://github.com/linrong123/moonlight-office)。包内 `Contents/Resources/OfficeSource/SOURCE.json` 记录构建时源码提交及链接；请递归检出子模块，并遵循 `office/README.md` 构建说明。
+Moonlight Qt v6.2.0 指向提交 [`de2467e433821664cdd2224aad8c89a625be1ad9`](https://github.com/moonlight-stream/moonlight-qt/tree/de2467e433821664cdd2224aad8c89a625be1ad9)，根许可证为 GNU GPL v3。Moonlight Desk 的修改和完整上游历史已经公开在 [本项目](https://github.com/linrong123/moonlight-desk)。包内 `Contents/Resources/OfficeSource/SOURCE.json` 记录构建时源码提交及链接；请递归检出子模块，并遵循 `office/README.md` 构建说明。
 
 | 组件 | 当前源码提交/出处 | 保存文件 |
 | --- | --- | --- |

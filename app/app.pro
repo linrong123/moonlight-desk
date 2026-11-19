@@ -5,7 +5,7 @@ unix:!macx {
     TARGET = moonlight
 } else {
     # On macOS, this is the name displayed in the global menu bar
-    TARGET = MoonlightOffice
+    TARGET = MoonlightDesk
 }
 
 include(../globaldefs.pri)

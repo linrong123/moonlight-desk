@@ -1,6 +1,6 @@
-# Moonlight Office
+# Moonlight Desk
 
-面向办公的独立定制版：一键进入桌面、断线恢复、连接内鼠标与分辨率工具栏。首个目标是 Apple Silicon Mac + Windows；被控端为 [Sunshine Office](https://github.com/linrong123/sunshine-office)，固定只提供 Desktop。
+面向办公的独立定制版：一键进入桌面、断线恢复、连接内鼠标与分辨率工具栏。首个目标是 Apple Silicon Mac + Windows；被控端为 [Sunshine Desk](https://github.com/linrong123/sunshine-desk)，固定只提供 Desktop。
 
 **初版开发中，尚未完成双端实机验收。** [构建与使用](office/README.md) · [验证记录](office/VALIDATION.md) · [架构与上游合并](office/UPSTREAM.md)。保留 GPLv3 与完整上游历史。本项目不是官方发行版；下方保留上游说明，官方下载链接指向原版。
 

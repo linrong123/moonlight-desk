@@ -5,11 +5,11 @@
 	<key>GCSupportsGameMode</key>
 	<true/>
 	<key>CFBundleExecutable</key>
-	<string>MoonlightOffice</string>
+	<string>MoonlightDesk</string>
 	<key>LSSupportsGameMode</key>
 	<true/>
 	<key>CFBundleGetInfoString</key>
-	<string>Moonlight Office desktop streaming client</string>
+	<string>Moonlight Desk desktop streaming client</string>
 	<key>CFBundleIconFile</key>
 	<string>moonlight</string>
 	<key>CFBundleIdentifier</key>
@@ -41,7 +41,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Moonlight Office uses the local network to connect to your remote desktop.</string>
+	<string>Moonlight Desk uses the local network to connect to your remote desktop.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_nvstream._tcp</string>
@@ -51,7 +51,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>VERSION</string>
 	<key>CFBundleDisplayName</key>
-	<string>MoonlightOffice</string>
+	<string>Moonlight Desk</string>
     <key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 </dict>
