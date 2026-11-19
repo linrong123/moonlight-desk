@@ -1,0 +1,24 @@
+name: Desk upstream drift
+on:
+  schedule:
+    - cron: '23 2 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-upstream-drift
+  cancel-in-progress: true
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Trial merge of the latest upstream release
+        shell: bash
+        env:
+          UPSTREAM_URL: https://github.com/moonlight-stream/moonlight-qt.git
+        run: bash office/ci/upstream-drift.sh

@@ -72,4 +72,5 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 每次连接确认：`tests/office/connectconfirm` 覆盖 approved、not_required、pending→approved（1 秒间隔、等待提示只触发一次）、denied、expired、65 秒客户端超时（发送 cancel）、非法 XML/未知 state/400/none（失败并撤回）、等待前取消（不发请求）与等待中取消（100 毫秒内停止并发送 cancel）、取消请求本身失败、传输异常撤回后上抛，以及 launch 403 `Host approval required` 识别；解析器拒绝重复/缺失 state、嵌套、属性、DTD/实体、命名空间、超长、非法 status_code。
 - QML：`tst_approval.qml` 覆盖等待前隐藏、取消只发一次、等待结束复位；`tst_deskhome.qml` 覆盖工作台显示“正在等待被控端确认…”并可通过“断开 / 取消”撤回，不触发进入桌面。
 - 以上测试已接入 `office/macos/test.sh`，云端结果见下方 CI 记录。
+- 上游漂移检查：本地对官方仓库运行 `office/ci/upstream-drift.sh`，最新正式版仍为 `v6.2.0`，0 冲突、0 个新增 workflow，退出码 0，临时 ref 已清理。另用本地合成仓库验证冲突路径：选中 `v1.10.0`（版本排序优于 `v1.9.0`，排除 `v2.0.0-beta`），列出 2 个冲突文件和 1 个新增 workflow，退出码 1。
 - 真实 Sunshine Desk 弹窗与双端确认待实机验收。本轮未连接任何真实主机，未替换 `dist/` 中的应用。

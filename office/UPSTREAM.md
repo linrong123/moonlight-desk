@@ -29,10 +29,11 @@
 | `app/main.cpp` / `Info.plist` / `app.pro` | 独立应用/偏好标识，模块注册；不覆盖原版 |
 | `autoupdatechecker.cpp` | 禁用原版更新提示，避免安装错误发行包；办公版更新源尚未实现 |
 | `office/macos` / CI | 独立构建/测试/打包；上游总入口只在官方仓库运行 |
+| `office/ci/upstream-drift.sh` / `.github/workflows/office-upstream-drift.yml` | 每周一及手动触发：取官方最新正式版 tag（`git ls-remote --tags --sort=-v:refname`，仅 `vX.Y.Z`），`git merge-tree --write-tree` 试合并当前分支，冲突数与文件、自基线以来上游新增的 workflow 写入运行摘要；有冲突则任务失败。只读权限，不推送、不建分支；合并上游后同步脚本内 `BASELINE_TAG`/`BASELINE_SHA` |
 
 ## 更新步骤
 
-1. 干净工作树创建维护分支，fetch upstream，再 merge 指定已审查的 tag。
+1. 先看最近一次 “Desk upstream drift” 运行摘要（或本地 `bash office/ci/upstream-drift.sh`）了解冲突文件和上游新增 workflow。干净工作树创建维护分支，fetch upstream，再 merge 指定已审查的 tag。
 2. 检查上表全部适配点。不要大段复制替换上游 Session；优先让新增功能留在 office 模块。
 3. 核对配对认证、TLS 信任、取消与清理时序、SDL 输入生命周期、CLI 非办公行为。
 4. 运行 `office/macos/test.sh`，完整构建，两端安装/锁屏恢复/分辨率/鼠标实测。
