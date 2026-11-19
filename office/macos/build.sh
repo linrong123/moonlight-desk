@@ -17,8 +17,11 @@ make -j"${OFFICE_BUILD_JOBS:-6}" release
 # Deploy into a fresh copy: rebuilding never modifies the app currently tested.
 STAGE="$(mktemp -d "$ROOT/build/package.XXXXXX")"
 ditto "$BUILD/app/MoonlightOffice.app" "$STAGE/MoonlightOffice.app"
-"$QT_BIN/macdeployqt" "$STAGE/MoonlightOffice.app" -qmldir="$ROOT/app" -appstore-compliant -no-codesign
-python3 "$ROOT/office/macos/verify_bundle.py" "$STAGE/MoonlightOffice.app"
+"$QT_BIN/macdeployqt" "$STAGE/MoonlightOffice.app" -qmldir="$ROOT/app" -appstore-compliant -no-codesign > "$STAGE/deploy.log" 2>&1 || {
+  cat "$STAGE/deploy.log"
+  exit 1
+}
+python3 "$ROOT/office/macos/verify_bundle.py" "$STAGE/MoonlightOffice.app" "$STAGE/deploy.log"
 codesign --force --deep --sign - "$STAGE/MoonlightOffice.app"
 codesign --verify --deep --strict "$STAGE/MoonlightOffice.app"
 if [[ -d "$ROOT/dist/MoonlightOffice.app" ]]; then

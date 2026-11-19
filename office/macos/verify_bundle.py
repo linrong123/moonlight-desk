@@ -5,6 +5,11 @@ import subprocess
 import sys
 
 bundle = pathlib.Path(sys.argv[1]).resolve()
+if len(sys.argv) > 2:
+    unexpected = [line for line in pathlib.Path(sys.argv[2]).read_text().splitlines()
+                  if line.startswith("ERROR:") and "libmimerapi.dylib" not in line]
+    if unexpected:
+        raise SystemExit("macdeployqt failed:\n" + "\n".join(unexpected))
 contents = bundle / "Contents"
 frameworks = contents / "Frameworks"
 executable_dir = contents / "MacOS"
