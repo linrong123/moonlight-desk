@@ -1,6 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>office/OfficeRecovery.qml</file>
+        <file>office/DeskHome.qml</file>
+        <file>office/DeskView.qml</file>
         <file>gui/main.qml</file>
         <file>gui/PcView.qml</file>
         <file>gui/AppView.qml</file>

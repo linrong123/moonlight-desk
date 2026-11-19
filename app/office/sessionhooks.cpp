@@ -1,12 +1,16 @@
 #include "streaming/session.h"
+#include "sessionbridge.h"
 
 bool Session::officeEnabled() const { return bool(m_Office); }
 
 int Session::officeRetryDelay() {
     if (!m_Office) return -1;
     if (m_Office->userStopped) m_Office->recovery.cancel();
-    return m_Office->recovery.nextDelay(office::monotonicMs(),
+    const int delay = m_Office->recovery.nextDelay(office::monotonicMs(),
         m_Office->reconfigure || m_Office->retryable.load());
+    if (delay >= 0 && office::SessionBridge::instance())
+        office::SessionBridge::instance()->report("recovering");
+    return delay;
 }
 
 Session* Session::officeNextSession() {
@@ -36,20 +40,32 @@ void SdlInputHandler::setOfficeMouseMode(bool absolute, bool localCursor) {
 }
 
 void Session::officeStartUi() {
+    if (office::SessionBridge::instance()) office::SessionBridge::instance()->report("connected");
     if (!m_Office) return;
     m_Office->everConnected = true;
     m_Office->recovery.connected(office::monotonicMs());
     m_OfficeToolbar = office::createToolbar(m_Window, m_StreamConfig.width, m_StreamConfig.height,
         m_Office->mouseMode, [this](office::Action action, int first, int second) {
             officeAction(action, first, second);
-        });
+        }, office::SessionBridge::isSessionProcess());
     officePollUi();
 }
 
 void Session::officeStopUi() { m_OfficeToolbar.reset(); }
 
 void Session::officePollUi() {
-    if (!m_Office || !m_InputHandler) return;
+    if (!m_InputHandler) return;
+    if (auto* bridge = office::SessionBridge::instance()) {
+        if (bridge->stopRequested()) {
+            if (!m_Office) interrupt();
+            else if (!m_Office->userStopped) officeCancelRecovery();
+        }
+        if (bridge->takeFocus() && m_Window) {
+            SDL_RestoreWindow(m_Window);
+            SDL_RaiseWindow(m_Window);
+        }
+    }
+    if (!m_Office) return;
     const auto effective = office::effectiveMouseMode(m_Office->mouseMode,
         m_Office->cursorSupported, m_Office->cursorStatus);
     if (m_OfficeAppliedInput != static_cast<int>(effective)) {
@@ -73,6 +89,9 @@ void Session::officePollUi() {
 void Session::officeAction(office::Action action, int first, int second) {
     if (!m_Office || !m_InputHandler) return;
     switch (action) {
+    case office::Action::Devices:
+        if (auto* bridge = office::SessionBridge::instance()) bridge->showManager();
+        break;
     case office::Action::Mouse: {
         if (first < 0 || first > 2) return;
         const auto mode = static_cast<office::MouseMode>(first);

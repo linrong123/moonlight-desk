@@ -244,6 +244,9 @@ public:
 
     void clientSideAttributeUpdated(NvComputer* computer);
 
+    // Persist newly paired hosts before a separate session process reads them.
+    bool flushHostsForSession();
+
 signals:
     void computerStateChanged(NvComputer* computer);
 
@@ -283,4 +286,7 @@ private:
     QMutex m_DelayedFlushMutex; // Lock ordering: Must never be acquired while holding NvComputer lock
     QWaitCondition m_DelayedFlushCondition;
     bool m_NeedsDelayedFlush;
+    bool m_FlushInProgress = false;
+    bool m_LastFlushOk = true;
+    QWaitCondition m_FlushCompleted;
 };

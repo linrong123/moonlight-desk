@@ -10,3 +10,8 @@ cd "$ROOT/build/office-tests/preferences"
 "$QT_BIN/qmake" "$ROOT/tests/office/preferences/preferences.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
 make -j4
 ./office-preferences-test
+mkdir -p "$ROOT/build/office-tests/sessions"
+cd "$ROOT/build/office-tests/sessions"
+"$QT_BIN/qmake" "$ROOT/tests/office/sessions/sessions.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./office-sessions-test

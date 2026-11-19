@@ -1,4 +1,5 @@
 #include "computermanager.h"
+#include "office/sessionbridge.h"
 #include "boxartmanager.h"
 #include "nvhttp.h"
 #include "nvpairingmanager.h"
@@ -265,6 +266,7 @@ void DelayedFlushThread::run() {
 
             // Reset the delayed flush flag to ensure any racing saveHosts() call will set it again
             m_ComputerManager->m_NeedsDelayedFlush = false;
+            m_ComputerManager->m_FlushInProgress = true;
 
             // Update the last serialized hosts map under the delayed flush mutex
             m_ComputerManager->m_LastSerializedHosts.clear();
@@ -307,12 +309,20 @@ void DelayedFlushThread::run() {
 
             // Finally, delete the backup copy
             settings.remove(SER_HOSTS_BACKUP);
+            settings.sync();
+            QMutexLocker locker(&m_ComputerManager->m_DelayedFlushMutex);
+            m_ComputerManager->m_LastFlushOk = settings.status() == QSettings::NoError;
+            m_ComputerManager->m_FlushInProgress = false;
+            m_ComputerManager->m_FlushCompleted.wakeAll();
         }
     }
 }
 
 void ComputerManager::saveHosts()
 {
+    // Only the device manager owns the host catalog. A session's stale list
+    // must never overwrite a device added, renamed or removed in the manager.
+    if (office::SessionBridge::isSessionProcess()) return;
     Q_ASSERT(m_DelayedFlushThread != nullptr && m_DelayedFlushThread->isRunning());
 
     // Punt to a worker thread because QSettings on macOS can take ages (> 500 ms)
@@ -320,6 +330,17 @@ void ComputerManager::saveHosts()
     QMutexLocker locker(&m_DelayedFlushMutex);
     m_NeedsDelayedFlush = true;
     m_DelayedFlushCondition.wakeOne();
+}
+
+bool ComputerManager::flushHostsForSession()
+{
+    saveHosts();
+    QMutexLocker locker(&m_DelayedFlushMutex);
+    QDeadlineTimer deadline(5000);
+    while (m_NeedsDelayedFlush || m_FlushInProgress) {
+        if (!m_FlushCompleted.wait(&m_DelayedFlushMutex, deadline)) return false;
+    }
+    return m_LastFlushOk;
 }
 
 QHostAddress ComputerManager::getBestGlobalAddressV6(QVector<QHostAddress> &addresses)

@@ -4,6 +4,12 @@ import QtQuick.Controls 2.2
 import ComputerManager 1.0
 
 Item {
+    property bool launched: false
+    Connections {
+        target: DeskSessionBridge
+        function onStop() { if (!launched) Qt.quit() }
+        function onFocus() { if (!launched) { window.show(); window.raise(); window.requestActivate() } }
+    }
     function onSearchingComputer() {
         stageLabel.text = qsTr("Establishing connection to PC...")
     }
@@ -13,6 +19,7 @@ Item {
     }
 
     function onSessionCreated(appName, session) {
+        launched = true
         var component = Qt.createComponent("StreamSegue.qml")
         var segue = component.createObject(stackView, {
             "appName": appName,
@@ -23,6 +30,7 @@ Item {
     }
 
     function onLaunchFailed(message) {
+        DeskSessionBridge.report("error")
         errorDialog.text = message
         errorDialog.open()
         console.error(message)

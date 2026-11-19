@@ -16,7 +16,8 @@ class ComputerModel : public QAbstractListModel
         WakeableRole,
         StatusUnknownRole,
         ServerSupportedRole,
-        DetailsRole
+        DetailsRole,
+        UuidRole
     };
 
 public:
@@ -24,6 +25,8 @@ public:
 
     // Must be called before any QAbstractListModel functions
     Q_INVOKABLE void initialize(ComputerManager* computerManager);
+
+    Q_INVOKABLE QVariantMap get(int row) const;
 
     QVariant data(const QModelIndex &index, int role) const override;
 

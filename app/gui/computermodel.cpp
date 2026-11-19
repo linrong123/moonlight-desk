@@ -13,7 +13,9 @@ void ComputerModel::initialize(ComputerManager* computerManager)
     connect(m_ComputerManager, &ComputerManager::pairingCompleted,
             this, &ComputerModel::handlePairingCompleted);
 
+    beginResetModel();
     m_Computers = m_ComputerManager->getComputers();
+    endResetModel();
 }
 
 QVariant ComputerModel::data(const QModelIndex& index, int role) const
@@ -28,6 +30,8 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
     QReadLocker lock(&computer->lock);
 
     switch (role) {
+    case UuidRole:
+        return computer->uuid;
     case NameRole:
         return computer->name;
     case OnlineRole:
@@ -110,8 +114,19 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[StatusUnknownRole] = "statusUnknown";
     names[ServerSupportedRole] = "serverSupported";
     names[DetailsRole] = "details";
+    names[UuidRole] = "uuid";
 
     return names;
+}
+
+QVariantMap ComputerModel::get(int row) const
+{
+    QVariantMap result;
+    if (row < 0 || row >= m_Computers.count()) return result;
+    const auto roles = roleNames();
+    for (auto it = roles.cbegin(); it != roles.cend(); ++it)
+        result.insert(QString::fromLatin1(it.value()), data(index(row), it.key()));
+    return result;
 }
 
 Session* ComputerModel::createSessionForCurrentGame(int computerIndex)

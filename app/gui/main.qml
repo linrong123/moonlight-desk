@@ -19,15 +19,40 @@ ApplicationWindow {
     property bool clearOnBack: false
 
     id: window
-    width: 1280
-    height: 600
+    width: deskManagerMode ? 1100 : 1280
+    height: deskManagerMode ? 720 : 600
+    minimumWidth: deskManagerMode ? 900 : 0
+    minimumHeight: deskManagerMode ? 600 : 0
+    property bool deskHomeVisible: deskManagerMode && stackView.depth === 1
+    Material.theme: deskHomeVisible ? Material.Light : Material.Dark
+
+    function openDeskSettings() { navigateTo("qrc:/gui/SettingsView.qml", SettingsView) }
+    function openDeskAddPc() { addPcDialog.open() }
+    function requestDeskQuit() { quitConfirmationDialog.open() }
+    Connections {
+        target: DeskSessions
+        function onShowManager() { window.showNormal(); window.raise(); window.requestActivate() }
+    }
+    onClosing: function(close) {
+        if (!deskManagerMode && stackView.currentItem && stackView.currentItem.cancelDeskClose) {
+            close.accepted = false
+            stackView.currentItem.cancelDeskClose()
+        } else if (deskManagerMode && DeskSessions.count > 0) {
+            close.accepted = false
+            window.hide()
+        } else if (deskManagerMode) {
+            // QGuiApplication::quit itself closes windows. Defer this to avoid
+            // recursively requesting quit from inside its close event.
+            Qt.callLater(Qt.quit)
+        }
+    }
 
     // This function runs prior to creation of the initial StackView item
     function doEarlyInit() {
         // Override the background color to Material 2 colors for Qt 6.5+
         // in order to improve contrast between GFE's placeholder box art
         // and the background of the app grid.
-        if (SystemProperties.usesMaterial3Theme) {
+        if (!deskHomeVisible && SystemProperties.usesMaterial3Theme) {
             Material.background = "#303030"
         }
 
@@ -237,6 +262,9 @@ ApplicationWindow {
 
     header: ToolBar {
         id: toolBar
+        visible: !window.deskHomeVisible
+        // ApplicationWindow excludes invisible headers itself. A zero height
+        // forces the upstream icon buttons into a repeated layout-polish loop.
         height: 60
         anchors.topMargin: 5
         anchors.bottomMargin: 5
@@ -436,7 +464,7 @@ ApplicationWindow {
 
                 Shortcut {
                     id: settingsShortcut
-                    enabled: toolBar.visible
+                    enabled: deskManagerMode || toolBar.visible
                     sequence: StandardKey.Preferences
                     onActivated: settingsButton.clicked()
                 }
@@ -487,9 +515,12 @@ ApplicationWindow {
     NavigableMessageDialog {
         id: quitConfirmationDialog
         standardButtons: Dialog.Yes | Dialog.No
-        text: qsTr("Are you sure you want to quit?")
+        text: deskManagerMode ? (DeskSessions.count > 0 ? "退出会断开所有远程桌面，确定退出？" : "确定退出 Moonlight Desk？") : qsTr("Are you sure you want to quit?")
         // For keyboard/gamepad navigation
-        onAccepted: Qt.quit()
+        onAccepted: {
+            if (deskManagerMode) DeskSessions.stopAll()
+            Qt.quit()
+        }
     }
 
     // HACK: This belongs in StreamSegue but keeping a dialog around after the parent
@@ -517,7 +548,7 @@ ApplicationWindow {
 
     NavigableDialog {
         id: addPcDialog
-        property string label: qsTr("Enter the IP address of your host PC:")
+        property string label: deskManagerMode ? "输入电脑的 IP 地址或主机名：" : qsTr("Enter the IP address of your host PC:")
 
         standardButtons: Dialog.Ok | Dialog.Cancel
 

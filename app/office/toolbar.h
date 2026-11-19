@@ -11,5 +11,5 @@ public:
     virtual void setStatus(const char* text) = 0;
 };
 std::unique_ptr<Toolbar> createToolbar(SDL_Window* window, int width, int height,
-    MouseMode mode, std::function<void(Action, int, int)> action);
+    MouseMode mode, std::function<void(Action, int, int)> action, bool hasDeviceManager = false);
 }

@@ -42,6 +42,8 @@
 #include "cli/listapps.h"
 #include "cli/quitstream.h"
 #include "cli/startstream.h"
+#include "office/desksessions.h"
+#include "office/sessionbridge.h"
 #include "cli/pair.h"
 #include "cli/commandlineparser.h"
 #include "path.h"
@@ -464,7 +466,8 @@ int main(int argc, char *argv[])
     if (IS_UNSPECIFIED_HANDLE(oldConErr))
 #endif
     {
-        s_LoggerFile = new QFile(tempDir.filePath(QString("Moonlight-%1.log").arg(QDateTime::currentSecsSinceEpoch())));
+        s_LoggerFile = new QFile(tempDir.filePath(QString("MoonlightDesk-%1-%2.log")
+            .arg(QDateTime::currentSecsSinceEpoch()).arg(QCoreApplication::applicationPid())));
         if (s_LoggerFile->open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream(stderr) << "Redirecting log output to " << s_LoggerFile->fileName() << Qt::endl;
             s_LoggerStream.setDevice(s_LoggerFile);
@@ -497,8 +500,10 @@ int main(int argc, char *argv[])
 
 #ifdef LOG_TO_FILE
     // Prune the oldest existing logs if there are more than 10
-    QStringList existingLogNames = tempDir.entryList(QStringList("Moonlight-*.log"), QDir::NoFilter, QDir::SortFlag::Time);
-    for (int i = 10; i < existingLogNames.size(); i++) {
+    QStringList existingLogNames = tempDir.entryList(QStringList("MoonlightDesk-*.log"), QDir::NoFilter, QDir::SortFlag::Time);
+    for (int i = 10; i < existingLogNames.size() && !office::SessionBridge::isSessionProcess(); i++) {
+        if (QFileInfo(tempDir.filePath(existingLogNames.at(i))).lastModified().secsTo(QDateTime::currentDateTime()) < 86400)
+            continue;
         qInfo() << "Removing old log file:" << existingLogNames.at(i);
         QFile(tempDir.filePath(existingLogNames.at(i))).remove();
     }
@@ -985,13 +990,37 @@ int main(int argc, char *argv[])
         qputenv("QT_QUICK_CONTROLS_MATERIAL_PRIMARY", "#3F51B5");
     }
 
+    office::DeskSessions deskSessions;
+    office::SessionBridge deskSessionBridge;
     QQmlApplicationEngine engine;
+    const bool deskManagerMode = commandLineParserResult == GlobalCommandLineParser::NormalStartRequested;
+    engine.rootContext()->setContextProperty("DeskSessions", &deskSessions);
+    engine.rootContext()->setContextProperty("DeskSessionBridge", &deskSessionBridge);
+    engine.rootContext()->setContextProperty("deskManagerMode", deskManagerMode);
+    if (deskManagerMode) {
+        app.setQuitOnLastWindowClosed(false);
+        deskSessions.setPrepareLaunch([&engine](const QString& uuid) {
+            const int type = qmlTypeId("ComputerManager", 1, 0, "ComputerManager");
+            auto* manager = engine.singletonInstance<ComputerManager*>(type);
+            if (!manager) return false;
+            for (const auto* computer : manager->getComputers()) {
+                bool matches;
+                {
+                    QReadLocker lock(&computer->lock);
+                    matches = computer->uuid == uuid && computer->state == NvComputer::CS_ONLINE &&
+                        computer->pairState == NvComputer::PS_PAIRED;
+                }
+                if (matches) return manager->flushHostsForSession();
+            }
+            return false;
+        });
+    }
     QString initialView;
     bool hasGUI = true;
 
     switch (commandLineParserResult) {
     case GlobalCommandLineParser::NormalStartRequested:
-        initialView = "qrc:/gui/PcView.qml";
+        initialView = "qrc:/office/DeskView.qml";
         break;
     case GlobalCommandLineParser::StreamRequested:
         {

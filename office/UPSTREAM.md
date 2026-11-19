@@ -12,7 +12,11 @@
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
 | `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
-| `app/gui/AppView.qml` / `appmodel.*` | 仅当完整目录唯一 Desktop 才一键启动，不筛掉其他应用 |
+| `app/office/DeskHome.qml` / `DeskView.qml` | 设备工作台；真实 ComputerModel 数据与操作，不放未实现功能入口 |
+| `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态 |
+| `app/backend/computermanager.*` / `gui/computermodel.*` | 仅管理进程写设备列表；启动前有界持久化等待；UUID role/get、初始化模型重置信号 |
+| `app/gui/CliStartStreamSegue.qml` | 复用原有 CLI 发现、配对验证、Desktop 启动；接入状态和取消 |
+| `app/gui/AppView.qml` / `appmodel.*` | 保留旧界面兼容路径；工作台独立请求服务端 Desktop，不过滤服务器应用目录 |
 | `app/gui/StreamSegue.qml` / `main.qml` | 恢复展示、取消、导航保护；非办公串流保留原路径 |
 | `app/streaming/session.*` | 回调错误分类、主动与远端断开区分、worker 清理后才 ready、Desktop 不 quit host app |
 | `app/streaming/input/input.h` | 鼠标模式切换接口，调用原有输入处理 |
@@ -27,6 +31,7 @@
 3. 核对配对认证、TLS 信任、取消与清理时序、SDL 输入生命周期、CLI 非办公行为。
 4. 运行 `office/macos/test.sh`，完整构建，两端安装/锁屏恢复/分辨率/鼠标实测。
 5. 更新基线、测试记录和限制。新增 workflow 要审查权限及发布目标，不能继承上游发布凭据或向上游提交。
+6. 核查 `Session::s_ActiveSession`、底层 `Connection.c` 全局状态及 CLI 接口。多连接依靠进程隔离，不删除上游单连接信号量。验证每窗口焦点/释放按键、关闭一连接不影响另一连接、管理进程退出等待清理，以及会话进程不回写旧设备列表。
 
 ## 协议扩展
 

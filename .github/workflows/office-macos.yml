@@ -28,6 +28,7 @@ jobs:
           export OFFICE_QT_BIN="$(dirname "$(command -v qmake)")"
           bash office/macos/test.sh
           bash office/macos/build.sh
+          python3 office/macos/smoke.py
       - uses: actions/upload-artifact@v6
         with:
           name: MoonlightDesk-macOS-arm64

@@ -16,6 +16,7 @@
 - (void)fullscreen:(id)sender;
 - (void)statistics:(id)sender;
 - (void)disconnect:(id)sender;
+- (void)devices:(id)sender;
 - (void)reposition:(NSNotification*)notification;
 @end
 
@@ -32,6 +33,7 @@
 - (void)fullscreen:(id)sender { (void)sender; action(office::Action::Fullscreen, 0, 0); }
 - (void)statistics:(id)sender { (void)sender; action(office::Action::Statistics, 0, 0); }
 - (void)disconnect:(id)sender { (void)sender; action(office::Action::Disconnect, 0, 0); }
+- (void)devices:(id)sender { (void)sender; action(office::Action::Devices, 0, 0); }
 - (void)reposition:(NSNotification*)notification {
     (void)notification;
     NSRect parent = streamWindow.frame;
@@ -49,11 +51,11 @@ class MacToolbar final : public Toolbar {
     OfficeToolbarTarget* target;
 public:
     MacToolbar(NSWindow* parent, int width, int height, MouseMode mode,
-               std::function<void(Action, int, int)> callback) {
+               std::function<void(Action, int, int)> callback, bool hasDeviceManager) {
         target = [[OfficeToolbarTarget alloc] init];
         target->action = std::move(callback);
         target->streamWindow = parent;
-        target->panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 700, 76)
+        target->panel = [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, hasDeviceManager ? 784 : 700, 76)
             styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskNonactivatingPanel
             backing:NSBackingStoreBuffered defer:NO];
         NSPanel* p = target->panel;
@@ -88,9 +90,10 @@ public:
             [target->resolution selectItem:target->resolution.lastItem];
         }
         [p.contentView addSubview:target->resolution];
-        NSArray* titles = @[@"应用", @"全屏", @"统计", @"断开"];
-        SEL selectors[] = {@selector(applyResolution:), @selector(fullscreen:), @selector(statistics:), @selector(disconnect:)};
-        for (int i = 0; i < 4; ++i) {
+        NSArray* titles = hasDeviceManager ? @[@"应用", @"全屏", @"统计", @"设备", @"断开"] : @[@"应用", @"全屏", @"统计", @"断开"];
+        SEL selectors[] = {@selector(applyResolution:), @selector(fullscreen:), @selector(statistics:),
+            hasDeviceManager ? @selector(devices:) : @selector(disconnect:), @selector(disconnect:)};
+        for (NSUInteger i = 0; i < titles.count; ++i) {
             NSButton* button = [NSButton buttonWithTitle:titles[i] target:target action:selectors[i]];
             button.frame = NSMakeRect(355 + i * 84, 39, 78, 28);
             [p.contentView addSubview:button];
@@ -126,10 +129,10 @@ public:
 };
 
 std::unique_ptr<Toolbar> createToolbar(SDL_Window* window, int width, int height,
-        MouseMode mode, std::function<void(Action, int, int)> action) {
+        MouseMode mode, std::function<void(Action, int, int)> action, bool hasDeviceManager) {
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     if (!SDL_GetWindowWMInfo(window, &info) || info.subsystem != SDL_SYSWM_COCOA) return {};
-    return std::make_unique<MacToolbar>(info.info.cocoa.window, width, height, mode, std::move(action));
+    return std::make_unique<MacToolbar>(info.info.cocoa.window, width, height, mode, std::move(action), hasDeviceManager);
 }
 }

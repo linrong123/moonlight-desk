@@ -18,6 +18,20 @@ Item {
     property bool isResume : false
     property bool quitAfter : false
 
+    function cancelDeskClose() {
+        if (officeMode && recovery.session) recovery.cancel()
+        else if (session) session.interrupt()
+        else Qt.quit()
+    }
+
+    Connections {
+        target: DeskSessionBridge
+        function onStop() {
+            streamSegue.cancelDeskClose()
+        }
+        function onFocus() { window.show(); window.raise(); window.requestActivate() }
+    }
+
     Keys.forwardTo: officeMode ? [recovery] : []
 
     function stageStarting(stage)
@@ -28,6 +42,7 @@ Item {
 
     function stageFailed(stage, errorCode, failingPorts)
     {
+        DeskSessionBridge.report("error")
         // Display the error dialog after Session::exec() returns
         streamSegueErrorDialog.text = qsTr("Starting %1 failed: Error %2").arg(stage).arg(errorCode)
 
@@ -55,6 +70,7 @@ Item {
 
     function displayLaunchError(text)
     {
+        DeskSessionBridge.report("error")
         // Display the error dialog after Session::exec() returns
         streamSegueErrorDialog.text = text
         console.error(text)
@@ -98,6 +114,7 @@ Item {
 
     function finishSegue(portTestResult)
     {
+        DeskSessionBridge.setCleanupRequired(false)
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.")
         }
@@ -186,8 +203,10 @@ Item {
         toolBar.visible = false
 
         connectSession()
-        if (officeMode)
+        if (officeMode) {
             recovery.session = session
+            DeskSessionBridge.setCleanupRequired(true)
+        }
 
         // Ensure the SystemProperties async thread is finished,
         // since it may currently be using the SDL video subsystem
