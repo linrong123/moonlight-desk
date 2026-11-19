@@ -43,4 +43,5 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 新包单独输出到 `dist/desk-multi/MoonlightDesk.app`；完整构建、111 个 Mach-O 依赖检查与严格本地签名通过。原运行包 `dist/MoonlightDesk.app` 未替换，用户现有连接未被接管或结束。
 - 独立 portable 配置、关闭 mDNS、Qt offscreen/SDL dummy 下，完整应用工作台启动与退出通过：运行 5 秒、退出码 0、退出约 0.07 秒、无 QML 加载错误。离屏插件来自同版本本地 SDK，不加入正式包；不读取实际配对配置，也不连接开发机。该检查已接入 CI。
 - 完整应用检查发现并修复隐藏旧工具栏的零高度导致按钮布局持续重算、界面阻塞；保留固定布局高度，由 ApplicationWindow 排除不可见页头。单独工作台组件测试不能覆盖此集成问题。
+- 源码提交 `37e143b6` 的干净云端构建 [run 44522532352](https://github.com/linrong123/moonlight-desk/actions/runs/44522532352) 全部通过（4 分 23 秒）：单元测试、Apple Silicon 打包、完整应用离屏启动/退出、工件上传。独立 QGuiApplication + 双合成会话的退出检查也返回 0，剩余会话为 0。
 - 真实两台主机同时串流、两窗口焦点/鼠标、单机重连不影响另一台、工具栏“设备”返回及多路负载表现尚未验收。不能以本地进程测试代替这些结果，详见 [多窗口验收](MULTI_SESSION.md)。
