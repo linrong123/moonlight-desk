@@ -4,17 +4,19 @@ Moonlight Desk（主控端）与 [Sunshine Desk](https://github.com/linrong123/s
 
 ## M0 上游合并卫生
 
-- [ ] Sunshine Desk 收缩上游文件差异并合并到上游最新 tag
-- [ ] 两端每周自动对上游最新 tag 做合并试算并报告冲突
+- [x] Sunshine Desk 收缩上游文件差异并合并到上游最新 tag（sunshine-desk b82153e5，v2026.1118.30014）
+- [x] 两端每周自动对上游最新 tag 做合并试算并报告冲突（moonlight-desk a8dfb136，sunshine-desk 204dc568）
 - [ ] 0.3.0 遗留实机验收：Windows 缩放写入、分辨率切换、全屏工具栏、两台主机同时串流
 
 ## M1 直连与授权（[设计](CONNECTION.md)）
 
-- [ ] 主控端发送真实设备名，配对界面提示在被控端弹窗输入验证码
-- [ ] 被控端原生授权弹窗（输入 4 位验证码）
-- [ ] 被控端托盘管理已授权设备（禁用/删除立即断开）
-- [ ] 可选「每次连接需本机确认」及主控端等待确认界面
-- [ ] 被控端默认强制串流加密
+代码与 CI 已完成，双端实机验收待做（见两端 `office/VALIDATION.md`）。
+
+- [x] 主控端发送真实设备名，配对界面提示在被控端弹窗输入验证码（moonlight-desk 7ab2131a）
+- [x] 被控端原生授权弹窗（输入 4 位验证码）（sunshine-desk bf375400）
+- [x] 被控端托盘管理已授权设备（禁用/删除立即断开）（sunshine-desk bf375400）
+- [x] 可选「每次连接需本机确认」及主控端等待确认界面（moonlight-desk 7ab2131a，sunshine-desk bf375400）
+- [x] 被控端默认强制串流加密（sunshine-desk bf375400）
 
 ## M2 被控端可独立安装
 

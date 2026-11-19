@@ -48,7 +48,7 @@
   `state` 取值：`not_required`（未开启确认）、`pending`、`approved`、`denied`、`expired`、`none`（status 时无请求）。`action` 缺失、重复或非法返回 `status_code=400`。
   - `start`：为该证书建立待确认请求并弹出「「名称」请求连接此电脑 允许/拒绝」窗口；已有 pending/approved 时原样返回，不重复弹窗；`denied`/`expired` 结果保留期内同一证书再次 `start` 直接返回原结果，不重新弹窗（冷却）。每证书最多 1 个 pending，全局最多 3 个。
   - `status`：只查询，不创建。
-  - `cancel`：撤回 pending 并关闭窗口。
+  - `cancel`：撤回 pending 或未消耗的许可并关闭窗口，返回 `none`；冷却期内的 `denied`/`expired` 不清除，原样返回，避免用 cancel 绕过冷却。
   - 60 秒无人处理变为 `expired`；`denied`/`expired` 结果保留 30 秒供查询。
 - 批准后发放绑定该客户端证书的一次性许可，30 秒内有效，由下一次 `/launch` 或 `/resume` 消耗。
 - 开启确认时，没有有效许可的 `/launch`、`/resume` 返回 XML `status_code=403`、`status_message="Host approval required"`，同时自动发起一次 `start`，便于官方 Moonlight 用户在被控端批准后手动重试。
