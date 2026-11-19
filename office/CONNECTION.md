@@ -46,7 +46,7 @@
   ```
 
   `state` 取值：`not_required`（未开启确认）、`pending`、`approved`、`denied`、`expired`、`none`（status 时无请求）。`action` 缺失、重复或非法返回 `status_code=400`。
-  - `start`：为该证书建立待确认请求并弹出「「名称」请求连接此电脑 允许/拒绝」窗口；已有 pending/approved 时原样返回，不重复弹窗。每证书最多 1 个 pending，全局最多 3 个。
+  - `start`：为该证书建立待确认请求并弹出「「名称」请求连接此电脑 允许/拒绝」窗口；已有 pending/approved 时原样返回，不重复弹窗；`denied`/`expired` 结果保留期内同一证书再次 `start` 直接返回原结果，不重新弹窗（冷却）。每证书最多 1 个 pending，全局最多 3 个。
   - `status`：只查询，不创建。
   - `cancel`：撤回 pending 并关闭窗口。
   - 60 秒无人处理变为 `expired`；`denied`/`expired` 结果保留 30 秒供查询。
@@ -59,7 +59,7 @@
 - 主机宣告 `OfficeConnectConfirm=1` 时，在 launch/resume 前调用 `start`，界面显示「正在等待被控端确认…」与取消按钮，每秒 `status` 轮询，最长 65 秒。
 - `approved`/`not_required` → 继续原有启动流程；`denied` → 「被控端拒绝了连接」；`expired` → 「被控端未在 60 秒内确认」。两者都不自动重试，恢复链终止。
 - 用户取消 → 发送 `cancel` 后返回工作台。
-- 启动仍收到 `403 Host approval required` 时按拒绝处理，不重试。
+- 启动仍收到 `403 Host approval required` 时提示「被控端需要本机确认，请重新连接」，尽力发送一次 `cancel` 撤回服务端自动发起的请求，不自动重试。
 - 未宣告该能力的主机按原流程连接。
 
 ### 3. 授权管理与撤销
