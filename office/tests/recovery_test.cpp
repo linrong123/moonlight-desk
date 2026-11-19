@@ -1,4 +1,5 @@
 #include "../../app/office/recoverypolicy.h"
+#include "../../app/office/types.h"
 #include <cassert>
 #include <iostream>
 
@@ -28,5 +29,14 @@ int main() {
     assert(office::validResolution(3840, 2160));
     assert(!office::validResolution(0, 1080));
     assert(!office::validResolution(1920, -1));
+    using office::MouseMode;
+    using office::effectiveMouseMode;
+    for (auto requested : {MouseMode::Local, MouseMode::Remote, MouseMode::Relative}) {
+        assert(effectiveMouseMode(requested, true, 0) == MouseMode::Local);
+        assert(effectiveMouseMode(requested, true, -2) == MouseMode::Local);
+        assert(effectiveMouseMode(requested, true, 1) == requested);
+    }
+    assert(effectiveMouseMode(MouseMode::Local, false, -1) == MouseMode::Remote);
+    assert(effectiveMouseMode(MouseMode::Relative, false, -1) == MouseMode::Relative);
     std::cout << "Recovery policy: cancellation, deadline, flapping, healthy reset and resolutions passed\n";
 }

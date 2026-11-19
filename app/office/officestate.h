@@ -7,6 +7,7 @@
 #include <QThreadPool>
 #include <atomic>
 #include <memory>
+#include <mutex>
 
 namespace office {
 constexpr int ConnectionLostEvent = 0x6f660001;
@@ -21,6 +22,7 @@ struct State {
     std::atomic_bool cursorSupported{false};
     std::atomic_int cursorStatus{0}; // 0=idle, 1=success, -1=unsupported, -2=failure
     std::atomic_uint cursorGeneration{0};
+    std::mutex cursorResultMutex;
     bool reconfigure = false;
     bool everConnected = false;
     int currentApp = 0;

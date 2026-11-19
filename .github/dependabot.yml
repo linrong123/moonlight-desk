@@ -5,5 +5,7 @@ version: 2
 updates:
   - package-ecosystem: "gitsubmodule"
     directory: "/"
+    # Submodule versions follow reviewed upstream merges for this fork.
+    open-pull-requests-limit: 0
     schedule:
       interval: "daily"

@@ -152,6 +152,7 @@ signals:
 private:
     std::shared_ptr<office::State> m_Office;
     std::unique_ptr<office::Toolbar> m_OfficeToolbar;
+    int m_OfficeAppliedInput = -1;
     void officeStartUi();
     void officeStopUi();
     void officePollUi();

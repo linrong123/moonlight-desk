@@ -79,7 +79,12 @@ void State::prepareConnection(NvHTTP& http) {
 void State::queueCursor(const NvAddress& address, uint16_t port,
                         const QSslCertificate& cert, bool trueUid, bool visible) {
     if (!cursorSupported) { cursorStatus = -1; return; }
-    const auto generation = ++cursorGeneration;
+    unsigned generation;
+    {
+        std::lock_guard<std::mutex> lock(cursorResultMutex);
+        generation = ++cursorGeneration;
+        cursorStatus = 0;
+    }
     cursorQueue.clear(); // At most one in-flight and one latest pending request.
     cursorQueue.start(QRunnable::create([this, address, port, cert, trueUid, visible, generation] {
         int result;
@@ -92,6 +97,7 @@ void State::queueCursor(const NvAddress& address, uint16_t port,
         } catch (const std::exception&) {
             result = -2;
         }
+        std::lock_guard<std::mutex> lock(cursorResultMutex);
         if (cursorGeneration == generation) cursorStatus = result;
     }));
 }

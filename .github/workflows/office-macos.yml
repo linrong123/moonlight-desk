@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: office-mac-${{ github.ref }}
+  group: office-mac-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   macos:
