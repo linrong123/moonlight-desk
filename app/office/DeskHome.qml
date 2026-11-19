@@ -170,6 +170,7 @@ Rectangle {
                             font.pixelSize: 25; font.bold: true; color: "#26334b"; elide: Text.ElideRight
                         }
                         Text {
+                            objectName: "deviceStatus"
                             Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
                             text: !home.selectedDevice.name ? "从左侧选择设备，或添加一台新电脑" : (home.sessionActive ? home.sessionStatus : (home.selectedDevice.statusUnknown ? "正在检测设备状态，请稍候" : (!home.selectedDevice.online ? "设备当前离线，请确认电脑已开机并连接网络" : (!home.selectedDevice.paired ? "首次连接，请先与这台电脑配对" : "设备已就绪，可以进入远程桌面"))))
                             color: "#8b96a8"; font.pixelSize: 13
@@ -189,7 +190,7 @@ Rectangle {
                             Button { text: "开始配对"; visible: !!home.selectedDevice.name && home.selectedDevice.online && !home.selectedDevice.statusUnknown && !home.selectedDevice.paired; onClicked: home.pairDevice() }
                             Button { text: "唤醒电脑"; visible: !!home.selectedDevice.name && !home.selectedDevice.online && !home.selectedDevice.statusUnknown && home.selectedDevice.wakeable; onClicked: home.wakeDevice() }
                             Button { text: "添加设备"; visible: !home.selectedDevice.name; onClicked: home.addDevice() }
-                            Button { text: "断开 / 取消"; visible: home.sessionActive; flat: true; onClicked: home.disconnectDesktop() }
+                            Button { objectName: "disconnectButton"; text: "断开 / 取消"; visible: home.sessionActive; flat: true; onClicked: home.disconnectDesktop() }
                         }
                         Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: home.selectedDevice.online && !home.selectedDevice.serverSupported ? "此电脑的串流服务版本不受支持，请检查主机端版本" : ""; color: "#b58030"; font.pixelSize: 12; wrapMode: Text.Wrap }
                     }

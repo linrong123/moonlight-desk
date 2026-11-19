@@ -65,3 +65,11 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 旧 0.2.0 管理与串流进程收到正常退出请求后，卡在清理阶段；保留采样后仅结束这两个已核对路径的旧版 Mac 进程。新客户端连接成功，Windows 登录和运行应用保留。旧版真实串流退出卡住属于待排查问题，不能以合成会话退出测试覆盖该结果。
 - 本轮确认到工作台连接状态与两端串流日志；自动化未完成串流子窗口顶部工具栏、DPI 写入与视觉变化的检查。这些仍由接下来的实机试用验收，不标为通过。已停止键鼠接管，供用户直接操作。
 - 私有进程采样、原始日志和交付回执仅存忽略目录，不进入公开仓库。
+
+## 直连授权：设备名、配对提示与每次连接确认（2026-11-19）
+
+- 配对发送本机真实名称：`tests/office/devicename` 覆盖清洗控制字符（含 C1）、64 字节 UTF-8 截断不切断多字节字符、空名回退 `Moonlight Desk`、URL 编码。
+- 每次连接确认：`tests/office/connectconfirm` 覆盖 approved、not_required、pending→approved（1 秒间隔、等待提示只触发一次）、denied、expired、65 秒客户端超时（发送 cancel）、非法 XML/未知 state/400/none（失败并撤回）、等待前取消（不发请求）与等待中取消（100 毫秒内停止并发送 cancel）、取消请求本身失败、传输异常撤回后上抛，以及 launch 403 `Host approval required` 识别；解析器拒绝重复/缺失 state、嵌套、属性、DTD/实体、命名空间、超长、非法 status_code。
+- QML：`tst_approval.qml` 覆盖等待前隐藏、取消只发一次、等待结束复位；`tst_deskhome.qml` 覆盖工作台显示“正在等待被控端确认…”并可通过“断开 / 取消”撤回，不触发进入桌面。
+- 以上测试已接入 `office/macos/test.sh`，云端结果见下方 CI 记录。
+- 真实 Sunshine Desk 弹窗与双端确认待实机验收。本轮未连接任何真实主机，未替换 `dist/` 中的应用。

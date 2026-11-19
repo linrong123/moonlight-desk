@@ -82,6 +82,7 @@ void State::prepareConnection(NvHTTP& http) {
     cursorSupported = NvHTTP::getXmlString(xml, "OfficeCursorSet") == "1";
     cursorStatus = cursorSupported ? 0 : -1;
     displayScaleSupported = NvHTTP::getXmlString(xml, "OfficeDisplayScale") == "1";
+    connectConfirm = NvHTTP::getXmlString(xml, "OfficeConnectConfirm") == "1";
     {
         std::lock_guard<std::mutex> lock(displayScaleMutex);
         ++displayScaleGeneration;

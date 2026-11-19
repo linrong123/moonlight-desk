@@ -1,5 +1,8 @@
 #include "streaming/session.h"
+#include "connectconfirm.h"
 #include "sessionbridge.h"
+
+#include <QThread>
 
 bool Session::officeEnabled() const { return bool(m_Office); }
 
@@ -29,6 +32,66 @@ void Session::officeCancelRecovery() {
         m_Office->recovery.cancel();
     }
     if (s_ActiveSession == this) interrupt();
+}
+
+// Called on the async connection thread before launch/resume (CONNECTION.md §2).
+bool Session::officeAwaitApproval(NvHTTP& http) {
+    auto* bridge = office::SessionBridge::instance();
+    bool waiting = false;
+    office::ApprovalHooks hooks;
+    hooks.request = [&http](const QString& action) { return http.requestOfficeConnect(action); };
+    hooks.cancelled = [this] { return m_Office->userStopped.load(); };
+    hooks.waiting = [this, bridge, &waiting] {
+        waiting = true;
+        if (bridge) bridge->report("approval");
+        emit officeApprovalWaiting(true);
+    };
+    hooks.now = [] { return office::monotonicMs(); };
+    hooks.sleep = [](int ms) { QThread::msleep(ms); };
+
+    const auto finishWaiting = [this, &waiting] {
+        if (waiting) emit officeApprovalWaiting(false);
+        waiting = false;
+    };
+    office::ApprovalOutcome outcome;
+    try {
+        outcome = office::waitForHostApproval(hooks);
+    } catch (...) {
+        finishWaiting();
+        throw;
+    }
+    finishWaiting();
+
+    switch (outcome) {
+    case office::ApprovalOutcome::Proceed:
+        if (waiting && bridge) bridge->report("starting");
+        return true;
+    case office::ApprovalOutcome::Cancelled:
+        return false;
+    case office::ApprovalOutcome::Denied:
+        if (bridge) bridge->report("denied");
+        break;
+    case office::ApprovalOutcome::Expired:
+    case office::ApprovalOutcome::TimedOut:
+        if (bridge) bridge->report("expired");
+        break;
+    case office::ApprovalOutcome::Failed:
+        break;
+    }
+    // Host decisions are final: retryable=false ends the recovery chain in
+    // officeRetryDelay() (RecoveryPolicy itself is UI-thread only).
+    m_Office->retryable = false;
+    emit displayLaunchError(office::approvalOutcomeMessage(outcome));
+    return false;
+}
+
+bool Session::officeApprovalRejected(const GfeHttpResponseException& error) {
+    if (!office::isHostApprovalRequired(error.getStatusCode(),
+                                        QString::fromUtf8(error.getStatusMessage()))) return false;
+    m_Office->retryable = false;
+    if (auto* bridge = office::SessionBridge::instance()) bridge->report("denied");
+    emit displayLaunchError(office::approvalOutcomeMessage(office::ApprovalOutcome::Denied));
+    return true;
 }
 
 void SdlInputHandler::setOfficeMouseMode(bool absolute, bool localCursor) {

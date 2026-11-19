@@ -17,13 +17,14 @@ TestCase {
     DeskHome { id: home; anchors.fill: parent; devices: hosts; selectedIndex: 0; selectedDevice: hosts.get(0) }
     SignalSpy { id: selectSpy; target: home; signalName: "selectDevice" }
     SignalSpy { id: enterSpy; target: home; signalName: "enterDesktop" }
+    SignalSpy { id: disconnectSpy; target: home; signalName: "disconnectDesktop" }
     function init() {
         home.selectedIndex = 0
         home.selectedDevice = hosts.get(0)
         home.sessionActive = false
         home.sessionStatus = ""
         findChild(home, "deviceSearch").text = ""
-        enterSpy.clear(); selectSpy.clear()
+        enterSpy.clear(); selectSpy.clear(); disconnectSpy.clear()
         wait(30)
     }
     function test_states() {
@@ -45,6 +46,17 @@ TestCase {
         compare(enterSpy.count, 1)
         home.selectedDevice = hosts.get(1)
         verify(!button.enabled)
+    }
+    function test_approvalWaitingCanBeCancelled() {
+        home.sessionActive = true
+        home.sessionStatus = "正在等待被控端确认…"
+        wait(30)
+        compare(findChild(home, "deviceStatus").text, "正在等待被控端确认…")
+        var button = findChild(home, "disconnectButton")
+        verify(button.visible)
+        mouseClick(button)
+        compare(disconnectSpy.count, 1)
+        compare(enterSpy.count, 0)
     }
     function test_activeCanFocusWhenOffline() {
         home.selectedDevice = hosts.get(1)

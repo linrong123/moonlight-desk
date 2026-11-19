@@ -149,6 +149,9 @@ signals:
 
     void launchWarningsChanged();
 
+    // Office: waiting for the host user to approve this connection.
+    void officeApprovalWaiting(bool waiting);
+
 private:
     std::shared_ptr<office::State> m_Office;
     std::unique_ptr<office::Toolbar> m_OfficeToolbar;
@@ -159,6 +162,8 @@ private:
     void officeStopUi();
     void officePollUi();
     void officeAction(office::Action action, int first, int second);
+    bool officeAwaitApproval(NvHTTP& http);
+    bool officeApprovalRejected(const GfeHttpResponseException& error);
     void exec();
 
     bool startConnectionAsync();

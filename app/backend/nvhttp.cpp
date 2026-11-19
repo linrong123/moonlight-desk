@@ -494,6 +494,18 @@ NvHTTP::requestOfficeDisplayScale(int scale, const QString& displayToken)
     return QString::fromUtf8(reply->readAll());
 }
 
+QString
+NvHTTP::requestOfficeConnect(const QString& action)
+{
+    if (m_ServerCert.isNull() || m_BaseUrlHttps.scheme() != "https")
+        throw GfeHttpResponseException(401, "Device pairing is required");
+    // Same paired-certificate authentication as office/display-scale; never
+    // falls back to plain HTTP.
+    std::unique_ptr<QNetworkReply> reply(openConnection(m_BaseUrlHttps,
+        "office/connect-request", "action=" + action, 3000, NVLL_NONE, false, false));
+    return QString::fromUtf8(reply->readAll());
+}
+
 QNetworkReply*
 NvHTTP::openConnection(QUrl baseUrl,
                        QString command,
