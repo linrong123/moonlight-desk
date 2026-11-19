@@ -145,6 +145,7 @@ public:
     bool isSystemKeyCaptureActive();
 
     void setCaptureActive(bool active);
+    void setOfficeMouseMode(bool absolute, bool localCursor);
 
     bool isMouseInVideoRegion(int mouseX, int mouseY, int windowWidth = -1, int windowHeight = -1);
 

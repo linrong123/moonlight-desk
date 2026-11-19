@@ -5,8 +5,12 @@ import QtQuick.Window 2.2
 import SdlGamepadKeyNavigation 1.0
 import Session 1.0
 import SystemProperties 1.0
+import "../office" as Office
 
 Item {
+    id: streamSegue
+    property bool officeMode: session ? session.officeEnabled() : false
+    property int finalPortTestResult: 0
     property Session session
     property string appName
     property string stageText : isResume ? qsTr("Resuming %1...").arg(appName) :
@@ -14,10 +18,12 @@ Item {
     property bool isResume : false
     property bool quitAfter : false
 
+    Keys.forwardTo: officeMode ? [recovery] : []
+
     function stageStarting(stage)
     {
         // Update the spinner text
-        stageText = qsTr("Starting %1...").arg(stage)
+        stageText = recovery.recovering ? qsTr("正在恢复桌面…") : qsTr("Starting %1...").arg(stage)
     }
 
     function stageFailed(stage, errorCode, failingPorts)
@@ -32,6 +38,11 @@ Item {
 
     function connectionStarted()
     {
+        if (officeMode) {
+            recovery.recovering = false
+            streamSegueErrorDialog.text = ""
+        }
+
         // Hide the UI contents so the user doesn't
         // see them briefly when we pop off the StackView
         stageSpinner.visible = false
@@ -51,6 +62,15 @@ Item {
 
     function quitStarting()
     {
+        if (officeMode) {
+            // Preserve the owner until deferred cleanup completes, even if a
+            // legacy profile requested host-app shutdown on disconnect.
+            stageText = qsTr("正在退出桌面…")
+            sessionFinished(0)
+            window.visible = true
+            return
+        }
+
         // Avoid the push transition animation
         var component = Qt.createComponent("QuitSegue.qml")
         stackView.replace(stackView.currentItem, component.createObject(stackView, {"appName": appName}), StackView.Immediate)
@@ -60,6 +80,23 @@ Item {
     }
 
     function sessionFinished(portTestResult)
+    {
+        if (officeMode) {
+            finalPortTestResult = portTestResult
+            recovery.finished()
+            if (recovery.recovering) {
+                stageText = qsTr("正在恢复桌面…")
+                stageSpinner.visible = true
+                stageLabel.visible = true
+                hintText.visible = false
+                window.visible = true
+            }
+            return
+        }
+        finishSegue(portTestResult)
+    }
+
+    function finishSegue(portTestResult)
     {
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.")
@@ -94,10 +131,46 @@ Item {
 
     function sessionReadyForDeletion()
     {
+        if (officeMode) {
+            recovery.ready()
+            return
+        }
+
         // Garbage collect the Session object since it's pretty heavyweight
         // and keeps other libraries (like SDL_TTF) around until it is deleted.
         session = null
         gc()
+    }
+
+    function connectSession()
+    {
+        // Hook up our signals
+        session.stageStarting.connect(stageStarting)
+        session.stageFailed.connect(stageFailed)
+        session.connectionStarted.connect(connectionStarted)
+        session.displayLaunchError.connect(displayLaunchError)
+        session.quitStarting.connect(quitStarting)
+        session.sessionFinished.connect(sessionFinished)
+        session.readyForDeletion.connect(sessionReadyForDeletion)
+    }
+
+    Office.OfficeRecovery {
+        id: recovery
+        onRetryReady: {
+            streamSegue.session = nextSession
+            streamSegue.connectSession()
+            streamLoader.active = false
+            streamLoader.active = true
+            gc()
+        }
+        onCompleted: {
+            // Keep the Session alive through cleanup, then release both QML owners.
+            if (cancelled)
+                streamSegueErrorDialog.text = ""
+            streamSegue.finishSegue(streamSegue.finalPortTestResult)
+            streamSegue.session = null
+            gc()
+        }
     }
 
     StackView.onDeactivating: {
@@ -112,14 +185,9 @@ Item {
         // Hide the toolbar before we start loading
         toolBar.visible = false
 
-        // Hook up our signals
-        session.stageStarting.connect(stageStarting)
-        session.stageFailed.connect(stageFailed)
-        session.connectionStarted.connect(connectionStarted)
-        session.displayLaunchError.connect(displayLaunchError)
-        session.quitStarting.connect(quitStarting)
-        session.sessionFinished.connect(sessionFinished)
-        session.readyForDeletion.connect(sessionReadyForDeletion)
+        connectSession()
+        if (officeMode)
+            recovery.session = session
 
         // Ensure the SystemProperties async thread is finished,
         // since it may currently be using the SDL video subsystem
@@ -219,6 +287,15 @@ Item {
 
             wrapMode: Text.Wrap
         }
+    }
+
+    Button {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.verticalCenter
+        anchors.topMargin: 70
+        text: qsTr("取消恢复")
+        visible: recovery.recovering
+        onClicked: recovery.cancel()
     }
 
     Label {

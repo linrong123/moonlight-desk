@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   setup:
+    if: github.repository == 'moonlight-stream/moonlight-qt'
     runs-on: ubuntu-latest
     outputs:
       ci_version: ${{ steps.set-ci-version.outputs.ci_version }}

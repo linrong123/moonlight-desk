@@ -76,6 +76,16 @@ void Session::clStageStarting(int stage)
 
 void Session::clStageFailed(int stage, int errorCode)
 {
+    if (s_ActiveSession->m_Office && s_ActiveSession->m_Office->everConnected) {
+        // Retry transport startup failures while the host restarts after login.
+        // Authentication and local decoder/audio initialization errors are final.
+        const bool transportStage = stage == STAGE_NAME_RESOLUTION ||
+            stage == STAGE_RTSP_HANDSHAKE || stage == STAGE_CONTROL_STREAM_START ||
+            stage == STAGE_VIDEO_STREAM_START || stage == STAGE_AUDIO_STREAM_START ||
+            stage == STAGE_INPUT_STREAM_START;
+        s_ActiveSession->m_Office->retryable = transportStage && errorCode != 401 &&
+            errorCode != 403 && errorCode != 400;
+    }
     // Perform the port test now, while we're on the async connection thread and not blocking the UI.
     unsigned int portFlags = LiGetPortFlagsFromStage(stage);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
@@ -87,6 +97,10 @@ void Session::clStageFailed(int stage, int errorCode)
 
 void Session::clConnectionTerminated(int errorCode)
 {
+    if (s_ActiveSession->m_Office) {
+        s_ActiveSession->m_Office->hostEnded = true;
+        s_ActiveSession->m_Office->retryable = office::retryableTermination(errorCode);
+    }
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
 
@@ -137,10 +151,15 @@ void Session::clConnectionTerminated(int errorCode)
                  "Connection terminated: %d",
                  errorCode);
 
-    // Push a quit event to the main loop
-    SDL_Event event;
-    event.type = SDL_QUIT;
-    event.quit.timestamp = SDL_GetTicks();
+    // Office distinguishes a host-side interruption from explicit local quit.
+    SDL_Event event = {};
+    if (s_ActiveSession->m_Office) {
+        event.type = SDL_USEREVENT;
+        event.user.code = office::ConnectionLostEvent;
+    } else {
+        event.type = SDL_QUIT;
+        event.quit.timestamp = SDL_GetTicks();
+    }
     SDL_PushEvent(&event);
 }
 
@@ -586,6 +605,11 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_AudioSampleCount(0),
       m_DropAudioEndTime(0)
 {
+    if (!computer->isNvidiaServerSoftware && app.name.compare("Desktop", Qt::CaseInsensitive) == 0) {
+        m_Preferences = m_Preferences->cloneForSession(this);
+        m_Office = std::make_shared<office::State>(computer->uuid);
+        m_Office->load(m_Preferences);
+    }
 }
 
 Session::~Session()
@@ -1272,6 +1296,7 @@ private:
     {
         // Only quit the running app if our session terminated gracefully
         bool shouldQuit =
+                !m_Session->m_Office &&
                 !m_Session->m_UnexpectedTermination &&
                 m_Session->m_Preferences->quitAppAfter;
 
@@ -1290,6 +1315,17 @@ private:
 
         // Finish cleanup of the connection state
         LiStopConnection();
+        if (m_Session->m_Office) {
+            auto& state = *m_Session->m_Office;
+            state.cursorQueue.clear();
+            // Leave ordinary clients a visible host cursor after Office exits.
+            // This is best effort, on the cleanup worker, before recovery can start.
+            if (state.cursorSupported && state.cursorGeneration != 0) {
+                state.queueCursor(state.peerAddress, state.peerPort,
+                    state.peerCertificate, state.trueUid, true);
+            }
+            state.cursorQueue.waitForDone();
+        }
 
         // Perform a best-effort app quit
         if (shouldQuit) {
@@ -1579,6 +1615,7 @@ public:
 // Called in a non-main thread
 bool Session::startConnectionAsync()
 {
+    if (m_Office && m_Office->userStopped) return false;
     // The UI should have ensured the old game was already quit
     // if we decide to stream a different game.
     Q_ASSERT(m_Computer->currentGameId == 0 ||
@@ -1611,7 +1648,16 @@ bool Session::startConnectionAsync()
 
     try {
         NvHTTP http(m_Computer);
-        http.startApp(m_Computer->currentGameId != 0 ? "resume" : "launch",
+        int runningApp = m_Computer->currentGameId;
+        if (m_Office) {
+            m_Office->prepareConnection(http);
+            runningApp = m_Office->currentApp;
+            if (runningApp != 0 && runningApp != m_App.id) {
+                throw GfeHttpResponseException(409, "Another application is running; automatic takeover was stopped");
+            }
+        }
+        if (m_Office && m_Office->userStopped) return false;
+        http.startApp(runningApp != 0 ? "resume" : "launch",
                       m_Computer->isNvidiaServerSoftware,
                       m_App.id, &m_StreamConfig,
                       enableGameOptimizations,
@@ -1619,10 +1665,16 @@ bool Session::startConnectionAsync()
                       m_InputHandler->getAttachedGamepadMask(),
                       !m_Preferences->multiController,
                       rtspSessionUrl);
+        if (m_Office) {
+            m_Office->queueCursor(http.address(), http.httpsPort(), http.serverCert(), true,
+                m_Office->mouseMode != office::MouseMode::Local);
+        }
     } catch (const GfeHttpResponseException& e) {
+        if (m_Office) m_Office->retryable = false;
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));
         return false;
     } catch (const QtNetworkReplyException& e) {
+        if (m_Office) m_Office->retryable = m_Office->everConnected && office::retryableNetworkError(e.getError());
         emit displayLaunchError(e.toQString());
         return false;
     }
@@ -1703,6 +1755,7 @@ bool Session::startConnectionAsync()
                                                                          false);
     }
 
+    if (m_Office && m_Office->userStopped) return false;
     int err = LiStartConnection(&hostInfo, &m_StreamConfig, &k_ConnCallbacks,
                                 &m_VideoCallbacks, &m_AudioCallbacks,
                                 NULL, 0, NULL, 0);
@@ -1748,6 +1801,13 @@ void Session::setShouldExit(bool quitHostApp)
 
 void Session::start()
 {
+    if (m_Office && m_Office->userStopped) {
+        // initialize() has acquired SDL video, but no connection/semaphore yet.
+        SDL_QuitSubSystem(SDL_INIT_VIDEO);
+        emit sessionFinished(0);
+        emit readyForDeletion();
+        return;
+    }
     // Wait for any old session to finish cleanup
     s_ActiveSessionSemaphore.acquire();
 
@@ -1767,6 +1827,7 @@ void Session::start()
 
 void Session::interrupt()
 {
+    if (m_Office && !m_Office->reconfigure) m_Office->userStopped = true;
     // Stop any connection in progress
     LiInterruptConnection();
 
@@ -1780,7 +1841,7 @@ void Session::interrupt()
 void Session::exec()
 {
     // If the connection failed, clean up and abort the connection.
-    if (!m_AsyncConnectionSuccess) {
+    if (!m_AsyncConnectionSuccess || (m_Office && m_Office->userStopped)) {
         delete m_InputHandler;
         m_InputHandler = nullptr;
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -1957,6 +2018,8 @@ void Session::exec()
     // Toggle the stats overlay if requested by the user
     m_OverlayManager.setOverlayState(Overlay::OverlayDebug, m_Preferences->showPerformanceOverlay);
 
+    officeStartUi();
+
     // Switch to async logging mode when we enter the SDL loop
     StreamUtils::enterAsyncLoggingMode();
 
@@ -1964,6 +2027,7 @@ void Session::exec()
     // because we want to suspend all Qt processing until the stream is over.
     SDL_Event event;
     for (;;) {
+        officePollUi();
 #if SDL_VERSION_ATLEAST(2, 0, 18) && !defined(STEAM_LINK)
         // SDL 2.0.18 has a proper wait event implementation that uses platform
         // support to block on events rather than polling on Windows, macOS, X11,
@@ -1997,11 +2061,15 @@ void Session::exec()
 #endif
         switch (event.type) {
         case SDL_QUIT:
+            if (m_Office && !m_Office->reconfigure) m_Office->userStopped = true;
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                         "Quit event received");
             goto DispatchDeferredCleanup;
 
         case SDL_USEREVENT:
+            if (m_Office && event.user.code == office::ConnectionLostEvent) {
+                goto DispatchDeferredCleanup;
+            }
             switch (event.user.code) {
             case SDL_CODE_FRAME_READY:
                 if (m_VideoDecoder != nullptr) {
@@ -2308,6 +2376,7 @@ void Session::exec()
     }
 
 DispatchDeferredCleanup:
+    officeStopUi();
     // Switch back to synchronous logging mode
     StreamUtils::exitAsyncLoggingMode();
 

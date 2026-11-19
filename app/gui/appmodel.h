@@ -29,7 +29,13 @@ public:
 
     Q_INVOKABLE Session* createSessionForApp(int appIndex);
 
+    Q_INVOKABLE QString getAppName(int appIndex);
+
+    Q_INVOKABLE int getAppId(int appIndex);
+
     Q_INVOKABLE int getDirectLaunchAppIndex();
+
+    Q_INVOKABLE int getOfficeDesktopAppIndex();
 
     Q_INVOKABLE int getRunningAppId();
 
@@ -54,6 +60,8 @@ private slots:
 
 signals:
     void computerLost();
+
+    void appsUpdated();
 
 private:
     void updateAppList(QVector<NvApp> newList);

@@ -5,7 +5,7 @@ unix:!macx {
     TARGET = moonlight
 } else {
     # On macOS, this is the name displayed in the global menu bar
-    TARGET = Moonlight
+    TARGET = MoonlightOffice
 }
 
 include(../globaldefs.pri)
@@ -580,3 +580,6 @@ macx {
 
 VERSION = "$$cat(version.txt)"
 DEFINES += VERSION_STR=\\\"$$cat(version.txt)\\\"
+
+# Office adapters stay outside upstream modules.
+include(office/office.pri)

@@ -42,18 +42,53 @@ CenteredGridView {
             currentIndex = 0
         }
 
-        if (!showGames && !showHiddenGames) {
-            // Check if there's a direct launch app
-            var directLaunchAppIndex = model.getDirectLaunchAppIndex();
-            if (directLaunchAppIndex >= 0) {
-                // Start the direct launch app if nothing else is running
-                currentIndex = directLaunchAppIndex
-                currentItem.launchOrResumeSelectedApp(false)
+        tryDirectLaunch()
+    }
 
-                // Set showGames so we will not loop when the stream ends
-                showGames = true
+    function tryDirectLaunch()
+    {
+        if (!activated || showGames || showHiddenGames)
+            return
+
+        var appIndex = appModel.getOfficeDesktopAppIndex()
+        if (appIndex < 0)
+            appIndex = appModel.getDirectLaunchAppIndex()
+        if (appIndex < 0)
+            return // A later appsUpdated signal retries after asynchronous loading.
+
+        // Consume this host click even if another app is running. Never quit it.
+        showGames = true
+        launchApp(appIndex, false)
+    }
+
+    Connections {
+        target: appModel
+        onAppsUpdated: appGrid.tryDirectLaunch()
+    }
+
+    function launchApp(appIndex, quitExistingApp)
+    {
+        var runningId = appModel.getRunningAppId()
+        var appId = appModel.getAppId(appIndex)
+        var appName = appModel.getAppName(appIndex)
+        if (runningId !== 0 && runningId !== appId) {
+            if (quitExistingApp) {
+                quitAppDialog.appName = appModel.getRunningAppName()
+                quitAppDialog.segueToStream = true
+                quitAppDialog.nextAppName = appName
+                quitAppDialog.nextAppIndex = appIndex
+                quitAppDialog.open()
             }
+            return
         }
+
+        var component = Qt.createComponent("StreamSegue.qml")
+        var segue = component.createObject(stackView, {
+            "appName": appName,
+            "session": appModel.createSessionForApp(appIndex),
+            "isResume": runningId === appId
+        })
+        stackView.push(segue)
     }
 
     StackView.onDeactivating: {
@@ -205,26 +240,7 @@ CenteredGridView {
 
         function launchOrResumeSelectedApp(quitExistingApp)
         {
-            var runningId = appModel.getRunningAppId()
-            if (runningId !== 0 && runningId !== model.appid) {
-                if (quitExistingApp) {
-                    quitAppDialog.appName = appModel.getRunningAppName()
-                    quitAppDialog.segueToStream = true
-                    quitAppDialog.nextAppName = model.name
-                    quitAppDialog.nextAppIndex = index
-                    quitAppDialog.open()
-                }
-
-                return
-            }
-
-            var component = Qt.createComponent("StreamSegue.qml")
-            var segue = component.createObject(stackView, {
-                                                   "appName": model.name,
-                                                   "session": appModel.createSessionForApp(index),
-                                                   "isResume": runningId === model.appid
-                                               })
-            stackView.push(segue)
+            appGrid.launchApp(index, quitExistingApp)
         }
 
         onClicked: {

@@ -5,15 +5,15 @@
 	<key>GCSupportsGameMode</key>
 	<true/>
 	<key>CFBundleExecutable</key>
-	<string>Moonlight</string>
+	<string>MoonlightOffice</string>
 	<key>LSSupportsGameMode</key>
 	<true/>
 	<key>CFBundleGetInfoString</key>
-	<string>Stream games and other applications from another PC</string>
+	<string>Moonlight Office desktop streaming client</string>
 	<key>CFBundleIconFile</key>
 	<string>moonlight</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.moonlight-stream.Moonlight</string>
+	<string>io.github.linrong123.MoonlightOffice</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>CFBundlePackageType</key>
@@ -41,7 +41,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Moonlight uses the local network to connect to your gaming PC for streaming.</string>
+	<string>Moonlight Office uses the local network to connect to your remote desktop.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_nvstream._tcp</string>
@@ -51,8 +51,8 @@
 	<key>CFBundleShortVersionString</key>
 	<string>VERSION</string>
 	<key>CFBundleDisplayName</key>
-	<string>Moonlight</string>
+	<string>MoonlightOffice</string>
     <key>LSApplicationCategoryType</key>
-	<string>public.app-category.games</string>
+	<string>public.app-category.productivity</string>
 </dict>
 </plist>

@@ -29,6 +29,9 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
 
 void AutoUpdateChecker::start()
 {
+    // Office release updates are published separately; no upstream replacement prompts.
+    return;
+
     if (!m_Nam) {
         Q_ASSERT(m_Nam);
         return;

@@ -10,6 +10,8 @@
 #include "video/decoder.h"
 #include "audio/renderers/renderer.h"
 #include "video/overlaymanager.h"
+#include "office/toolbar.h"
+#include "office/officestate.h"
 
 class SupportedVideoFormatList : public QList<int>
 {
@@ -104,6 +106,10 @@ public:
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
+    Q_INVOKABLE bool officeEnabled() const;
+    Q_INVOKABLE int officeRetryDelay();
+    Q_INVOKABLE Session* officeNextSession();
+    Q_INVOKABLE void officeCancelRecovery();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -144,6 +150,12 @@ signals:
     void launchWarningsChanged();
 
 private:
+    std::shared_ptr<office::State> m_Office;
+    std::unique_ptr<office::Toolbar> m_OfficeToolbar;
+    void officeStartUi();
+    void officeStopUi();
+    void officePollUi();
+    void officeAction(office::Action action, int first, int second);
     void exec();
 
     bool startConnectionAsync();

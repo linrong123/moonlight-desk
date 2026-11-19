@@ -144,14 +144,16 @@ ApplicationWindow {
         }
 
         Keys.onMenuPressed: {
-            settingsButton.clicked()
+            if (toolBar.visible)
+                settingsButton.clicked()
         }
 
         // This is a keypress we've reserved for letting the
         // SdlGamepadKeyNavigation object tell us to show settings
         // when Menu is consumed by a focused control.
         Keys.onHangupPressed: {
-            settingsButton.clicked()
+            if (toolBar.visible)
+                settingsButton.clicked()
         }
     }
 
@@ -434,6 +436,7 @@ ApplicationWindow {
 
                 Shortcut {
                     id: settingsShortcut
+                    enabled: toolBar.visible
                     sequence: StandardKey.Preferences
                     onActivated: settingsButton.clicked()
                 }

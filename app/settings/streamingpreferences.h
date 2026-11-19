@@ -17,6 +17,8 @@ public:
     Q_INVOKABLE void save();
 
     void reload();
+    // Isolated overrides for an Office session, owned by that session.
+    StreamingPreferences* cloneForSession(QObject* parent) const;
 
     enum AudioConfig
     {
