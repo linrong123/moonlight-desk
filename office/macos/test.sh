@@ -30,3 +30,13 @@ cd "$ROOT/build/office-tests/displayscale"
 "$QT_BIN/qmake" "$ROOT/tests/office/displayscale/displayscale.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
 make -j4
 ./office-displayscale-test
+mkdir -p "$ROOT/build/office-tests/devicename"
+cd "$ROOT/build/office-tests/devicename"
+"$QT_BIN/qmake" "$ROOT/tests/office/devicename/devicename.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./office-devicename-test
+mkdir -p "$ROOT/build/office-tests/connectconfirm"
+cd "$ROOT/build/office-tests/connectconfirm"
+"$QT_BIN/qmake" "$ROOT/tests/office/connectconfirm/connectconfirm.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./office-connectconfirm-test

@@ -35,6 +35,8 @@ struct State {
     MouseMode mouseMode = MouseMode::Local;
     QThreadPool cursorQueue;
     std::atomic_bool displayScaleSupported{false};
+    // CONNECTION.md §2: host asks its user before every launch/resume.
+    std::atomic_bool connectConfirm{false};
     QThreadPool displayScaleQueue;
     struct DisplayScaleSnapshot {
         DisplayScaleResult value;

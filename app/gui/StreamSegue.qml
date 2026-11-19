@@ -76,6 +76,13 @@ Item {
         console.error(text)
     }
 
+    function approvalWaiting(waiting)
+    {
+        approval.waiting = waiting
+        stageText = waiting ? qsTr("正在等待被控端确认…") :
+                    recovery.recovering ? qsTr("正在恢复桌面…") : qsTr("Starting %1...").arg(appName)
+    }
+
     function quitStarting()
     {
         if (officeMode) {
@@ -166,6 +173,7 @@ Item {
         session.stageFailed.connect(stageFailed)
         session.connectionStarted.connect(connectionStarted)
         session.displayLaunchError.connect(displayLaunchError)
+        session.officeApprovalWaiting.connect(approvalWaiting)
         session.quitStarting.connect(quitStarting)
         session.sessionFinished.connect(sessionFinished)
         session.readyForDeletion.connect(sessionReadyForDeletion)
@@ -313,8 +321,16 @@ Item {
         anchors.top: parent.verticalCenter
         anchors.topMargin: 70
         text: qsTr("取消恢复")
-        visible: recovery.recovering
+        visible: recovery.recovering && !approval.waiting
         onClicked: recovery.cancel()
+    }
+
+    Office.ApprovalWaiting {
+        id: approval
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.verticalCenter
+        anchors.topMargin: 70
+        onCancelRequested: streamSegue.cancelDeskClose()
     }
 
     Label {

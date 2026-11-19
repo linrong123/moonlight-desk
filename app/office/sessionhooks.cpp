@@ -1,5 +1,8 @@
 #include "streaming/session.h"
+#include "connectconfirm.h"
 #include "sessionbridge.h"
+
+#include <QThread>
 
 bool Session::officeEnabled() const { return bool(m_Office); }
 
@@ -29,6 +32,65 @@ void Session::officeCancelRecovery() {
         m_Office->recovery.cancel();
     }
     if (s_ActiveSession == this) interrupt();
+}
+
+// Called on the async connection thread before launch/resume (CONNECTION.md §2).
+bool Session::officeAwaitApproval(NvHTTP& http) {
+    auto* bridge = office::SessionBridge::instance();
+    bool waiting = false;
+    office::ApprovalHooks hooks;
+    hooks.request = [&http](const QString& action) { return http.requestOfficeConnect(action); };
+    hooks.cancelled = [this] { return m_Office->userStopped.load(); };
+    hooks.waiting = [this, bridge, &waiting] {
+        waiting = true;
+        if (bridge) bridge->report("approval");
+        emit officeApprovalWaiting(true);
+    };
+    hooks.now = [] { return office::monotonicMs(); };
+    hooks.sleep = [](int ms) { QThread::msleep(ms); };
+
+    const auto finishWaiting = [this, &waiting] {
+        if (waiting) emit officeApprovalWaiting(false);
+        waiting = false;
+    };
+    office::ApprovalOutcome outcome;
+    try {
+        outcome = office::waitForHostApproval(hooks);
+    } catch (...) {
+        finishWaiting();
+        throw;
+    }
+    // Capture before finishWaiting() clears the flag: the workbench must leave
+    // the approval text once the host approved.
+    const bool waited = waiting;
+    finishWaiting();
+
+    const QString state = office::approvalBridgeState(outcome, waited);
+    if (bridge && !state.isEmpty()) bridge->report(state);
+    if (outcome == office::ApprovalOutcome::Proceed) return true;
+    if (outcome == office::ApprovalOutcome::Cancelled) return false;
+    // Host decisions are final: retryable=false ends the recovery chain in
+    // officeRetryDelay() (RecoveryPolicy itself is UI-thread only).
+    m_Office->retryable = false;
+    emit displayLaunchError(office::approvalOutcomeMessage(outcome));
+    return false;
+}
+
+bool Session::officeApprovalRejected(const GfeHttpResponseException& error) {
+    if (!office::isHostApprovalRequired(error.getStatusCode(),
+                                        QString::fromUtf8(error.getStatusMessage()))) return false;
+    m_Office->retryable = false;
+    // The host opens a confirmation dialog on its own after this 403. The
+    // client gives up on this attempt, so withdraw that dialog (best effort).
+    NvHTTP http(m_Computer);
+    office::withdrawApprovalRequest([&http](const QString& action) {
+        return http.requestOfficeConnect(action);
+    });
+    constexpr auto outcome = office::ApprovalOutcome::ApprovalRequired;
+    if (auto* bridge = office::SessionBridge::instance())
+        bridge->report(office::approvalBridgeState(outcome, false));
+    emit displayLaunchError(office::approvalOutcomeMessage(outcome));
+    return true;
 }
 
 void SdlInputHandler::setOfficeMouseMode(bool absolute, bool localCursor) {

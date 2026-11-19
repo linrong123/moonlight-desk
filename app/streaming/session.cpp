@@ -1661,6 +1661,7 @@ bool Session::startConnectionAsync()
             if (runningApp != 0 && runningApp != m_App.id) {
                 throw GfeHttpResponseException(409, "Another application is running; automatic takeover was stopped");
             }
+            if (m_Office->connectConfirm && !officeAwaitApproval(http)) return false;
         }
         if (m_Office && m_Office->userStopped) return false;
         http.startApp(runningApp != 0 ? "resume" : "launch",
@@ -1676,6 +1677,7 @@ bool Session::startConnectionAsync()
                 m_Office->mouseMode != office::MouseMode::Local);
         }
     } catch (const GfeHttpResponseException& e) {
+        if (m_Office && officeApprovalRejected(e)) return false;
         if (m_Office) m_Office->retryable = office::retryableHostStatus(
             m_Office->everConnected, e.getStatusCode());
         emit displayLaunchError(tr("Host returned error: %1").arg(e.toQString()));

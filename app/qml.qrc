@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>office/OfficeRecovery.qml</file>
+        <file>office/ApprovalWaiting.qml</file>
         <file>office/DeskHome.qml</file>
         <file>office/DeskView.qml</file>
         <file>gui/main.qml</file>

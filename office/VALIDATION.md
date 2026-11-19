@@ -65,3 +65,13 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 旧 0.2.0 管理与串流进程收到正常退出请求后，卡在清理阶段；保留采样后仅结束这两个已核对路径的旧版 Mac 进程。新客户端连接成功，Windows 登录和运行应用保留。旧版真实串流退出卡住属于待排查问题，不能以合成会话退出测试覆盖该结果。
 - 本轮确认到工作台连接状态与两端串流日志；自动化未完成串流子窗口顶部工具栏、DPI 写入与视觉变化的检查。这些仍由接下来的实机试用验收，不标为通过。已停止键鼠接管，供用户直接操作。
 - 私有进程采样、原始日志和交付回执仅存忽略目录，不进入公开仓库。
+
+## 直连授权：设备名、配对提示与每次连接确认（2026-11-19）
+
+- 配对发送本机真实名称：`tests/office/devicename` 覆盖清洗控制字符（含 C1）、64 字节 UTF-8 截断不切断多字节字符、空名回退 `Moonlight Desk`、URL 编码。
+- 每次连接确认：`tests/office/connectconfirm` 覆盖 approved、not_required、pending→approved（1 秒间隔、等待提示只触发一次）、denied、expired、65 秒客户端超时（发送 cancel）、非法 XML/未知 state/400/none（失败并撤回）、等待前取消（不发请求）与等待中取消（100 毫秒内停止并发送 cancel）、取消请求本身失败、传输异常撤回后上抛，start 直接返回 denied/expired（服务端 30 秒内记住结果，不显示等待、不发送 cancel），以及 launch 403 `Host approval required` 识别、提示文案不含“拒绝”、撤回请求只发一次 cancel 且吞掉传输异常；工作台状态映射覆盖批准后报告 `starting`；解析器拒绝重复/缺失 state、嵌套、属性、DTD/实体、命名空间、超长、非法 status_code。
+- QML：`tst_approval.qml` 覆盖等待前隐藏、取消只发一次、等待结束复位；`tst_deskhome.qml` 覆盖工作台显示“正在等待被控端确认…”并可通过“断开 / 取消”撤回，不触发进入桌面。
+- 工作台：`tests/office/sessions` 覆盖子进程报告 `approval` 后再报告 `starting` 时状态由“正在等待被控端确认…”回到“正在连接”，以及 `approval_required` 后的通用 `error` 不覆盖“被控端需要本机确认，请重新连接”。
+- 以上测试已接入 `office/macos/test.sh`。干净 macOS ARM64 云端测试、完整构建与打包通过：设备名提交 `e33fbb61` 为 [run 44573329971](https://github.com/linrong123/moonlight-desk/actions/runs/44573329971)；每次连接确认提交 `1b108272` 为 [run 44574580289](https://github.com/linrong123/moonlight-desk/actions/runs/44574580289)，其中 connect-confirm 827 项检查、设备名 86 项、DPI 解析 87 项通过，QML 24 passed、0 failed。复核修正（批准后回到 `starting`、403 撤回与文案）提交 `6507d624` 为 [run 44605395635](https://github.com/linrong123/moonlight-desk/actions/runs/44605395635)：connect-confirm 843 项检查、工作台会话 13 项（含 `approvalReturnsToStarting`、`approvalRequiredSurvivesError`）、QML 24 passed、0 failed，完整构建与打包通过。
+- 上游漂移检查：本地对官方仓库运行 `office/ci/upstream-drift.sh`，最新正式版仍为 `v6.2.0`，0 冲突、0 个新增 workflow，退出码 0，临时 ref 已清理。另用本地合成仓库验证冲突路径：选中 `v1.10.0`（版本排序优于 `v1.9.0`，排除 `v2.0.0-beta`），列出 2 个冲突文件和 1 个新增 workflow，退出码 1。
+- 真实 Sunshine Desk 弹窗与双端确认待实机验收。本轮未连接任何真实主机，未替换 `dist/` 中的应用。

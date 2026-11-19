@@ -144,6 +144,9 @@ public:
     // Paired HTTPS only. Zero reads; a positive scale uses an empty-body POST.
     QString requestOfficeDisplayScale(int scale = 0, const QString& displayToken = {});
 
+    // Paired HTTPS only: office/connect-request?action=start|status|cancel.
+    QString requestOfficeConnect(const QString& action);
+
     void setServerCert(QSslCertificate serverCert);
     void setAddress(NvAddress address);
     void setHttpsPort(uint16_t port);

@@ -92,8 +92,9 @@ DeskHome {
         closePolicy: Popup.NoAutoClose
         contentItem: Column {
             spacing: 18
-            Text { width: parent.width; text: "在远端电脑的 Sunshine 管理页面中输入此 PIN。配对完成后本窗口会自动关闭。"; wrapMode: Text.Wrap; color: "#55647a"; font.pixelSize: 14 }
+            Text { objectName: "pairPrompt"; width: parent.width; text: "请在被控电脑弹出的窗口中输入验证码 " + pairDialog.pin; wrapMode: Text.Wrap; color: "#24324a"; font.pixelSize: 15 }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: pairDialog.pin; font.pixelSize: 34; font.letterSpacing: 8; color: "#4674ef" }
+            Text { objectName: "pairFallback"; width: parent.width; text: "若被控端未弹窗（旧版或原版 Sunshine），请在其网页管理后台的 PIN 页面输入"; wrapMode: Text.Wrap; color: "#7a879a"; font.pixelSize: 12 }
         }
     }
     Dialog {

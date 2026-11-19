@@ -106,10 +106,22 @@ bool DeskSessions::open(const QString& uuid, const QString& name) {
                     child->pending.remove(0, at + 1);
                     if (state == "manager") { emit showManager(); continue; }
                     if (child->stopping) continue;
+                    const QString denied = QStringLiteral("被控端拒绝了连接");
+                    const QString expired = QStringLiteral("被控端未在 60 秒内确认");
+                    const QString required = QStringLiteral("被控端需要本机确认，请重新连接");
                     if (state == "connected") child->state = QStringLiteral("已连接");
                     else if (state == "recovering") child->state = QStringLiteral("正在重连");
-                    else if (state == "error") child->state = QStringLiteral("连接未成功，请查看连接窗口");
+                    else if (state == "error") {
+                        // Keep the specific approval result the session sent just before.
+                        if (child->state == denied || child->state == expired ||
+                            child->state == required) continue;
+                        child->state = QStringLiteral("连接未成功，请查看连接窗口");
+                    }
                     else if (state == "starting") child->state = QStringLiteral("正在连接");
+                    else if (state == "approval") child->state = QStringLiteral("正在等待被控端确认…");
+                    else if (state == "denied") child->state = denied;
+                    else if (state == "expired") child->state = expired;
+                    else if (state == "approval_required") child->state = required;
                     else continue;
                     changed();
                 }

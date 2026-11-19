@@ -12,9 +12,13 @@
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
 | `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI |
 | `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |
+| `app/office/devicename.*` / `backend/nvpairingmanager.cpp` | 配对 `devicename` 取本机电脑名称（mac 用 SystemConfiguration），清洗、截断到 64 字节 UTF-8 并 URL 编码；上游只把五处 `devicename=roth` 换成同一个参数 |
+| `app/office/connectconfirm.*` / `backend/nvhttp.*` | 每次连接确认：`office/connect-request` 严格 XML 解析（唯一 `state`、合法枚举）、start→status 1 秒轮询、65 秒客户端期限、取消/超时/传输异常撤回；走配对 HTTPS GET，无 HTTP 降级 |
+| `app/office/sessionhooks.cpp` / `streaming/session.*` | `startConnectionAsync` 在 launch/resume 前调用 `officeAwaitApproval`；批准后向工作台报告 `starting`；launch/resume 返回 403 `Host approval required` 时尽力发送 `action=cancel` 撤回服务端自动弹出的确认窗，报告 `approval_required`，提示“被控端需要本机确认，请重新连接”；拒绝/超时/失败置不可恢复，不自动重试；新增信号 `officeApprovalWaiting` |
+| `app/office/ApprovalWaiting.qml` / `gui/StreamSegue.qml` | 串流准备页显示等待确认与“取消”，取消复用 `cancelDeskClose()`；等待时隐藏“取消恢复” |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
 | `app/office/DeskHome.qml` / `DeskView.qml` | 设备工作台；真实 ComputerModel 数据与操作，不放未实现功能入口 |
-| `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态 |
+| `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态；状态白名单含 `approval`/`denied`/`expired`，工作台据此显示等待确认并可“断开 / 取消” |
 | `app/backend/computermanager.*` / `gui/computermodel.*` | 仅管理进程写设备列表；启动前有界持久化等待；UUID role/get、初始化模型重置信号 |
 | `app/gui/CliStartStreamSegue.qml` | 复用原有 CLI 发现、配对验证、Desktop 启动；接入状态和取消 |
 | `app/gui/AppView.qml` / `appmodel.*` | 保留旧界面兼容路径；工作台独立请求服务端 Desktop，不过滤服务器应用目录 |
@@ -25,10 +29,11 @@
 | `app/main.cpp` / `Info.plist` / `app.pro` | 独立应用/偏好标识，模块注册；不覆盖原版 |
 | `autoupdatechecker.cpp` | 禁用原版更新提示，避免安装错误发行包；办公版更新源尚未实现 |
 | `office/macos` / CI | 独立构建/测试/打包；上游总入口只在官方仓库运行 |
+| `office/ci/upstream-drift.sh` / `.github/workflows/office-upstream-drift.yml` | 每周一及手动触发：取官方最新正式版 tag（`git ls-remote --tags --sort=-v:refname`，仅 `vX.Y.Z`），`git merge-tree --write-tree` 试合并当前分支，冲突数与文件、自基线以来上游新增的 workflow 写入运行摘要；有冲突则任务失败。只读权限，不推送、不建分支；合并上游后同步脚本内 `BASELINE_TAG`/`BASELINE_SHA` |
 
 ## 更新步骤
 
-1. 干净工作树创建维护分支，fetch upstream，再 merge 指定已审查的 tag。
+1. 先看最近一次 “Desk upstream drift” 运行摘要（或本地 `bash office/ci/upstream-drift.sh`）了解冲突文件和上游新增 workflow。干净工作树创建维护分支，fetch upstream，再 merge 指定已审查的 tag。
 2. 检查上表全部适配点。不要大段复制替换上游 Session；优先让新增功能留在 office 模块。
 3. 核对配对认证、TLS 信任、取消与清理时序、SDL 输入生命周期、CLI 非办公行为。
 4. 运行 `office/macos/test.sh`，完整构建，两端安装/锁屏恢复/分辨率/鼠标实测。
@@ -37,6 +42,8 @@
 7. 原生窗口工具栏不能修改视频contentView或覆盖其内容；确认sheet异步显示，销毁后不能回调Session。SDL确认期间暂停键鼠转发，保留窗口/网络事件处理。DPI队列在LiStopConnection之前清理，避免显示器恢复过程中发送旧请求。
 
 ## 协议扩展
+
+完整契约见 [CONNECTION.md](CONNECTION.md)。每次连接确认：已配对 HTTPS `serverinfo` 宣告 `OfficeConnectConfirm=1` 时，客户端在 launch/resume 前调用 `office/connect-request?action=start`，`pending` 时每 1 秒 `action=status`，最多 65 秒；`approved`/`not_required` 继续，`denied`/`expired` 终止，用户取消或客户端超时发送 `action=cancel`。XML 必须恰好一个 `state` 且为已知枚举，否则按失败处理并撤回；未知叶子字段忽略以便服务端扩展诊断信息。launch/resume 以 XML `status_code=403`、`status_message="Host approval required"` 退回时不重试：服务端会同时自动发起一次确认，客户端随即尽力发送一次 `action=cancel` 撤回该弹窗，并提示“被控端需要本机确认，请重新连接”（不称“拒绝”）。服务端在 denied/expired 后 30 秒内对同一证书的 start 直接返回原结果，客户端按普通 denied/expired 处理，无需额外逻辑。自动恢复同样先 start，由服务端 120 秒宽限直接返回 `approved`。未宣告能力的主机不调用。
 
 Sunshine Desk 在已配对 HTTPS `serverinfo` 宣告 `OfficeCursorSet=1`。客户端才会调用已认证 `office/cursor?visible=0|1`。请求设置目标值，不 toggle；重复请求不会反转。成功还需 XML `cursorVisible` 与目标一致。
 

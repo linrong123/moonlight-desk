@@ -98,6 +98,26 @@ private slots:
         // The fake SDL loop consumes bridge atomics without processing Qt events.
         QTRY_COMPARE_WITH_TIMEOUT(manager.count(), 0, 5000);
     }
+    void approvalReturnsToStarting() {
+        office::DeskSessions manager;
+        QVERIFY(manager.open("approval", "A"));
+        QTRY_COMPARE_WITH_TIMEOUT(manager.status("approval"), QString("正在等待被控端确认…"), 5000);
+        // Host approved: the child reports "starting" and the waiting text goes away.
+        QTRY_COMPARE_WITH_TIMEOUT(manager.status("approval"), QString("正在连接"), 5000);
+        manager.stopAll();
+        QTRY_COMPARE_WITH_TIMEOUT(manager.count(), 0, 5000);
+    }
+    void approvalRequiredSurvivesError() {
+        office::DeskSessions manager;
+        QVERIFY(manager.open("approval-required", "A"));
+        QTRY_COMPARE_WITH_TIMEOUT(manager.status("approval-required"),
+                                  QString("被控端需要本机确认，请重新连接"), 5000);
+        // The generic "error" that follows must not hide the specific reason.
+        QTest::qWait(300);
+        QCOMPARE(manager.status("approval-required"), QString("被控端需要本机确认，请重新连接"));
+        manager.stopAll();
+        QTRY_COMPARE_WITH_TIMEOUT(manager.count(), 0, 5000);
+    }
     void quitWaitsForChildren() {
         QProcess helper;
         helper.start(QCoreApplication::applicationFilePath(), {"test-manager-quit"});
@@ -130,6 +150,14 @@ int main(int argc, char** argv) {
                 while (!bridge.stopRequested() && timer.elapsed() < 4000) QThread::msleep(5);
                 app.exit(bridge.stopRequested() ? 0 : 9);
             });
+        } else if (app.arguments().contains("approval-required")) {
+            QTimer::singleShot(100, &bridge, [&] {
+                bridge.report("approval_required");
+                bridge.report("error");
+            });
+        } else if (app.arguments().contains("approval")) {
+            QTimer::singleShot(100, &bridge, [&] { bridge.report("approval"); });
+            QTimer::singleShot(700, &bridge, [&] { bridge.report("starting"); });
         } else {
             QTimer::singleShot(100, &bridge, [&] { bridge.report("connected"); });
         }
