@@ -215,6 +215,7 @@ private:
     bool m_NeedsManualCaptureOnLeave;
     bool m_MouseWasInVideoRegion;
     bool m_PendingMouseButtonsAllUpOnVideoRegionLeave;
+    unsigned m_OfficeMouseButtonsDown = 0;
     bool m_PointerRegionLockActive;
     bool m_PointerRegionLockToggledByUser;
 

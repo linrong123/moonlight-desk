@@ -42,6 +42,11 @@ void SdlInputHandler::setOfficeMouseMode(bool absolute, bool localCursor) {
 void SdlInputHandler::releaseOfficeInput() {
     raiseAllKeys();
     // A button-up delivered to the local sheet must not leave a remote drag held.
+    unsigned buttons = m_OfficeMouseButtonsDown;
+    m_OfficeMouseButtonsDown = 0;
+    if (m_DragButton) buttons |= 1u << m_DragButton;
+    if (m_LeftButtonReleaseTimer || m_LongPressTimer) buttons |= 1u << BUTTON_LEFT;
+    if (m_RightButtonReleaseTimer || m_LongPressTimer) buttons |= 1u << BUTTON_RIGHT;
     for (const auto timer : {m_LongPressTimer, m_DragTimer,
                             m_LeftButtonReleaseTimer, m_RightButtonReleaseTimer}) SDL_RemoveTimer(timer);
     m_LongPressTimer = m_DragTimer = m_LeftButtonReleaseTimer = m_RightButtonReleaseTimer = 0;
@@ -49,7 +54,7 @@ void SdlInputHandler::releaseOfficeInput() {
     m_NumFingersDown = 0;
     for (auto& touch : m_TouchDownEvent) touch = {};
     for (int button : {BUTTON_LEFT, BUTTON_MIDDLE, BUTTON_RIGHT, BUTTON_X1, BUTTON_X2})
-        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, button);
+        if (buttons & (1u << button)) LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, button);
     if (LiGetHostFeatureFlags() & LI_FF_PEN_TOUCH_EVENTS)
         LiSendTouchEvent(LI_TOUCH_EVENT_CANCEL_ALL, 0, 0, 0, 0, 0, 0, 0);
     m_PendingMouseButtonsAllUpOnVideoRegionLeave = false;

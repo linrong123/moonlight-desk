@@ -21,6 +21,7 @@
 | `app/gui/StreamSegue.qml` / `main.qml` | 恢复展示、取消、导航保护；非办公串流保留原路径 |
 | `app/streaming/session.*` | 回调错误分类、主动与远端断开区分、worker 清理后才 ready、Desktop 不 quit host app |
 | `app/streaming/input/input.h` | 鼠标模式切换接口，调用原有输入处理 |
+| `app/streaming/input/mouse.cpp` | 记录真正发给远端的鼠标按键；本地确认框只释放已按下的键，避免发送多余释放事件 |
 | `app/main.cpp` / `Info.plist` / `app.pro` | 独立应用/偏好标识，模块注册；不覆盖原版 |
 | `autoupdatechecker.cpp` | 禁用原版更新提示，避免安装错误发行包；办公版更新源尚未实现 |
 | `office/macos` / CI | 独立构建/测试/打包；上游总入口只在官方仓库运行 |

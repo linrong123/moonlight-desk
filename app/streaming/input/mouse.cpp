@@ -84,6 +84,10 @@ void SdlInputHandler::handleMouseButtonEvent(SDL_MouseButtonEvent* event)
             button = BUTTON_RIGHT;
     }
 
+    // Remember only buttons forwarded to the host, after left/right remapping.
+    // Local toolbar clicks never reach this point and must not produce remote ups.
+    if (event->state == SDL_PRESSED) m_OfficeMouseButtonsDown |= 1u << button;
+    else m_OfficeMouseButtonsDown &= ~(1u << button);
     LiSendMouseButtonEvent(event->state == SDL_PRESSED ?
                                BUTTON_ACTION_PRESS :
                                BUTTON_ACTION_RELEASE,
