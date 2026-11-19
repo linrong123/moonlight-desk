@@ -24,7 +24,7 @@ static int runPreview() {
             else toolbar->setStatus("本地操作已收到；此验证窗口不连接远程电脑");
         });
     if (!toolbar) return 3;
-    toolbar->setStatus("本地 UI 验证：检查菜单、应用、全屏及断开；不代表远端设置生效");
+    toolbar->setStatus("本地 UI 验证：检查菜单、分辨率确认、Windows缩放、全屏及断开；不代表远端设置生效");
     while (running) {
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, 50) && event.type == SDL_QUIT) running = false;

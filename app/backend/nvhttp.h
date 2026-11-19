@@ -141,6 +141,9 @@ public:
                            int timeoutMs,
                            NvLogLevel logLevel = NvLogLevel::NVLL_VERBOSE);
 
+    // Paired HTTPS only. Zero reads; a positive scale uses an empty-body POST.
+    QString requestOfficeDisplayScale(int scale = 0, const QString& displayToken = {});
+
     void setServerCert(QSslCertificate serverCert);
     void setAddress(NvAddress address);
     void setHttpsPort(uint16_t port);
@@ -193,7 +196,9 @@ private:
                    QString command,
                    QString arguments,
                    int timeoutMs,
-                   NvLogLevel logLevel);
+                   NvLogLevel logLevel,
+                   bool post = false,
+                   bool appendIdentity = true);
 
     NvAddress m_Address;
     QNetworkAccessManager* m_Nam;

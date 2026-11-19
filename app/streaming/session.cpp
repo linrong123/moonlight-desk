@@ -1314,6 +1314,12 @@ private:
         SDL_assert(m_Session->m_VideoDecoder == nullptr);
 
         // Finish cleanup of the connection state
+        if (m_Session->m_Office) {
+            // Let an already-sent DPI write finish while the capture display is
+            // still active. Do not start queued work during teardown/recovery.
+            m_Session->m_Office->displayScaleQueue.clear();
+            m_Session->m_Office->displayScaleQueue.waitForDone();
+        }
         LiStopConnection();
         if (m_Session->m_Office) {
             auto& state = *m_Session->m_Office;
@@ -2060,6 +2066,12 @@ void Session::exec()
             continue;
         }
 #endif
+        // The native resolution sheet consumes local input. Do not deliver its
+        // Escape, clicks, wheel or touch events to the remote desktop.
+        if (m_OfficeInputPaused &&
+            ((event.type >= SDL_KEYDOWN && event.type <= SDL_KEYMAPCHANGED) ||
+             (event.type >= SDL_MOUSEMOTION && event.type <= SDL_MOUSEWHEEL) ||
+             (event.type >= SDL_FINGERDOWN && event.type <= SDL_FINGERMOTION))) continue;
         switch (event.type) {
         case SDL_QUIT:
             if (m_Office && !m_Office->reconfigure) m_Office->userStopped = true;
@@ -2133,7 +2145,7 @@ void Session::exec()
             presence.runCallbacks();
 
             // Capture the mouse on SDL_WINDOWEVENT_ENTER if needed
-            if (needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
+            if (!m_OfficeInputPaused && needsFirstEnterCapture && event.window.event == SDL_WINDOWEVENT_ENTER) {
                 m_InputHandler->setCaptureActive(true);
                 needsFirstEnterCapture = false;
             }
@@ -2295,7 +2307,7 @@ void Session::exec()
                 // As of SDL 2.0.12, SDL_RecreateWindow() doesn't carry over mouse capture
                 // or mouse hiding state to the new window. By capturing after the decoder
                 // is set up, this ensures the window re-creation is already done.
-                if (needsPostDecoderCreationCapture) {
+                if (!m_OfficeInputPaused && needsPostDecoderCreationCapture) {
                     m_InputHandler->setCaptureActive(true);
                     needsPostDecoderCreationCapture = false;
                 }

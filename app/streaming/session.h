@@ -153,6 +153,8 @@ private:
     std::shared_ptr<office::State> m_Office;
     std::unique_ptr<office::Toolbar> m_OfficeToolbar;
     int m_OfficeAppliedInput = -1;
+    bool m_OfficeInputPaused = false;
+    bool m_OfficeRestoreCapture = false;
     void officeStartUi();
     void officeStopUi();
     void officePollUi();

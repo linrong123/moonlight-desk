@@ -11,6 +11,7 @@
 | `app/office/sessionhooks.cpp` | Session 小适配点，鼠标与分辨率应用、恢复实例创建 |
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
 | `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI |
+| `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
 | `app/office/DeskHome.qml` / `DeskView.qml` | 设备工作台；真实 ComputerModel 数据与操作，不放未实现功能入口 |
 | `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态 |
@@ -32,6 +33,7 @@
 4. 运行 `office/macos/test.sh`，完整构建，两端安装/锁屏恢复/分辨率/鼠标实测。
 5. 更新基线、测试记录和限制。新增 workflow 要审查权限及发布目标，不能继承上游发布凭据或向上游提交。
 6. 核查 `Session::s_ActiveSession`、底层 `Connection.c` 全局状态及 CLI 接口。多连接依靠进程隔离，不删除上游单连接信号量。验证每窗口焦点/释放按键、关闭一连接不影响另一连接、管理进程退出等待清理，以及会话进程不回写旧设备列表。
+7. 原生窗口工具栏不能修改视频contentView或覆盖其内容；确认sheet异步显示，销毁后不能回调Session。SDL确认期间暂停键鼠转发，保留窗口/网络事件处理。DPI队列在LiStopConnection之前清理，避免显示器恢复过程中发送旧请求。
 
 ## 协议扩展
 

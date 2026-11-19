@@ -146,6 +146,7 @@ public:
 
     void setCaptureActive(bool active);
     void setOfficeMouseMode(bool absolute, bool localCursor);
+    void releaseOfficeInput();
 
     bool isMouseInVideoRegion(int mouseX, int mouseY, int windowWidth = -1, int windowHeight = -1);
 

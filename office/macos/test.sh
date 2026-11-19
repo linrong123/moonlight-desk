@@ -15,3 +15,12 @@ cd "$ROOT/build/office-tests/sessions"
 "$QT_BIN/qmake" "$ROOT/tests/office/sessions/sessions.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
 make -j4
 ./office-sessions-test
+mkdir -p "$ROOT/build/office-tests/toolbar" "$ROOT/build/office-tests/displayscale"
+cd "$ROOT/build/office-tests/toolbar"
+"$QT_BIN/qmake" "$ROOT/tests/office/toolbar/check.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./OfficeToolbarHiddenCheck
+cd "$ROOT/build/office-tests/displayscale"
+"$QT_BIN/qmake" "$ROOT/tests/office/displayscale/displayscale.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./office-displayscale-test

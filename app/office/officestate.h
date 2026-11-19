@@ -2,6 +2,7 @@
 
 #include "recoverypolicy.h"
 #include "types.h"
+#include "displayscale.h"
 #include "backend/nvhttp.h"
 #include "settings/streamingpreferences.h"
 #include <QThreadPool>
@@ -14,6 +15,7 @@ constexpr int ConnectionLostEvent = 0x6f660001;
 
 struct State {
     explicit State(const QString& hostId);
+    ~State();
     QString settingsGroup;
     RecoveryPolicy recovery;
     std::atomic_bool retryable{false};
@@ -32,11 +34,23 @@ struct State {
     bool trueUid = true;
     MouseMode mouseMode = MouseMode::Local;
     QThreadPool cursorQueue;
+    std::atomic_bool displayScaleSupported{false};
+    QThreadPool displayScaleQueue;
+    struct DisplayScaleSnapshot {
+        DisplayScaleResult value;
+        bool pending = false;
+        QString message;
+    };
+    std::mutex displayScaleMutex;
+    unsigned displayScaleGeneration = 0;
+    DisplayScaleSnapshot displayScale;
 
     void load(StreamingPreferences* prefs);
     void saveResolution(int width, int height);
     void saveMouse(MouseMode mode);
     void prepareConnection(NvHTTP& http);
+    void queueDisplayScale(int percent = 0);
+    DisplayScaleSnapshot displayScaleSnapshot();
     void queueCursor(const NvAddress& address, uint16_t port,
                      const QSslCertificate& cert, bool trueUid, bool visible);
 };

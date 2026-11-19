@@ -39,6 +39,24 @@ void SdlInputHandler::setOfficeMouseMode(bool absolute, bool localCursor) {
     setCaptureActive(true);
 }
 
+void SdlInputHandler::releaseOfficeInput() {
+    raiseAllKeys();
+    // A button-up delivered to the local sheet must not leave a remote drag held.
+    for (const auto timer : {m_LongPressTimer, m_DragTimer,
+                            m_LeftButtonReleaseTimer, m_RightButtonReleaseTimer}) SDL_RemoveTimer(timer);
+    m_LongPressTimer = m_DragTimer = m_LeftButtonReleaseTimer = m_RightButtonReleaseTimer = 0;
+    m_DragButton = 0;
+    m_NumFingersDown = 0;
+    for (auto& touch : m_TouchDownEvent) touch = {};
+    for (int button : {BUTTON_LEFT, BUTTON_MIDDLE, BUTTON_RIGHT, BUTTON_X1, BUTTON_X2})
+        LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, button);
+    if (LiGetHostFeatureFlags() & LI_FF_PEN_TOUCH_EVENTS)
+        LiSendTouchEvent(LI_TOUCH_EVENT_CANCEL_ALL, 0, 0, 0, 0, 0, 0, 0);
+    m_PendingMouseButtonsAllUpOnVideoRegionLeave = false;
+    SDL_CaptureMouse(SDL_FALSE);
+    setCaptureActive(false);
+}
+
 void Session::officeStartUi() {
     if (office::SessionBridge::instance()) office::SessionBridge::instance()->report("connected");
     if (!m_Office) return;
@@ -48,10 +66,16 @@ void Session::officeStartUi() {
         m_Office->mouseMode, [this](office::Action action, int first, int second) {
             officeAction(action, first, second);
         }, office::SessionBridge::isSessionProcess());
+    // Sunshine may change the active display during launch/resume. Read DPI
+    // only after the stream has started, not from the previous desktop layout.
+    m_Office->queueDisplayScale();
     officePollUi();
 }
 
-void Session::officeStopUi() { m_OfficeToolbar.reset(); }
+void Session::officeStopUi() {
+    m_OfficeRestoreCapture = false;
+    m_OfficeToolbar.reset();
+}
 
 void Session::officePollUi() {
     if (!m_InputHandler) return;
@@ -66,29 +90,60 @@ void Session::officePollUi() {
         }
     }
     if (!m_Office) return;
+    const bool mayCapture = !m_OfficeInputPaused && !m_Office->userStopped &&
+        !m_Office->reconfigure && SDL_GetKeyboardFocus() == m_Window;
+    if (mayCapture && m_OfficeRestoreCapture) {
+        // AppKit may deliver the parent focus event after the sheet completion.
+        m_OfficeRestoreCapture = false;
+        m_InputHandler->setCaptureActive(true);
+    }
     const auto effective = office::effectiveMouseMode(m_Office->mouseMode,
         m_Office->cursorSupported, m_Office->cursorStatus);
-    if (m_OfficeAppliedInput != static_cast<int>(effective)) {
+    if (mayCapture && m_OfficeAppliedInput != static_cast<int>(effective)) {
         m_InputHandler->setOfficeMouseMode(effective != office::MouseMode::Relative,
             effective == office::MouseMode::Local);
         m_OfficeAppliedInput = static_cast<int>(effective);
     }
     if (!m_OfficeToolbar) return;
+    const auto scale = m_Office->displayScaleSnapshot();
+    m_OfficeToolbar->setDisplayScales(scale.value.supported, scale.value.current, scale.pending);
+    QString status;
     switch (m_Office->cursorStatus.load()) {
-    case -1: m_OfficeToolbar->setStatus("旧版主机：使用远端光标；本地光标需办公版被控端"); break;
+    case -1: status = QStringLiteral("旧版主机：使用远端光标"); break;
     case -2:
         // The host may have applied the request before its response was lost.
         // Preserve the visible local pointer instead of risking no cursor.
-        m_OfficeToolbar->setStatus("远端光标同步失败；暂用本地光标，可重新选择重试");
+        status = QStringLiteral("远端光标同步失败；暂用本地光标");
         break;
-    case 1: m_OfficeToolbar->setStatus("鼠标即时生效 · 分辨率应用时会短暂重连"); break;
-    default: m_OfficeToolbar->setStatus("正在同步光标设置…"); break;
+    case 1: break;
+    default: status = QStringLiteral("正在同步光标设置…"); break;
     }
+    if (!status.isEmpty() && !scale.message.isEmpty()) status += QStringLiteral(" · ");
+    status += scale.message;
+    m_OfficeToolbar->setStatus(status.toUtf8().constData());
 }
 
 void Session::officeAction(office::Action action, int first, int second) {
     if (!m_Office || !m_InputHandler) return;
     switch (action) {
+    case office::Action::InputPause:
+        if (first && !m_OfficeInputPaused) {
+            m_OfficeRestoreCapture = m_InputHandler->isCaptureActive();
+            m_OfficeInputPaused = true;
+            m_InputHandler->releaseOfficeInput();
+        } else if (!first && m_OfficeInputPaused) {
+            // Discard queued events from the local sheet before resuming.
+            SDL_FlushEvents(SDL_KEYDOWN, SDL_KEYMAPCHANGED);
+            SDL_FlushEvents(SDL_MOUSEMOTION, SDL_MOUSEWHEEL);
+            SDL_FlushEvents(SDL_FINGERDOWN, SDL_FINGERMOTION);
+            m_OfficeInputPaused = false;
+            officePollUi();
+        }
+        break;
+    case office::Action::DisplayScale:
+        m_Office->queueDisplayScale(first);
+        officePollUi();
+        break;
     case office::Action::Devices:
         if (auto* bridge = office::SessionBridge::instance()) bridge->showManager();
         break;

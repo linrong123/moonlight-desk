@@ -11,6 +11,7 @@
 #include <QImageReader>
 #include <QtEndian>
 #include <QNetworkProxy>
+#include <memory>
 
 #define FAST_FAIL_TIMEOUT_MS 2000
 #define REQUEST_TIMEOUT_MS 5000
@@ -478,12 +479,29 @@ NvHTTP::openConnectionToString(QUrl baseUrl,
     return ret;
 }
 
+QString
+NvHTTP::requestOfficeDisplayScale(int scale, const QString& displayToken)
+{
+    if (m_ServerCert.isNull() || m_BaseUrlHttps.scheme() != "https")
+        throw GfeHttpResponseException(401, "Device pairing is required");
+    // This extension authenticates with the paired TLS certificate. Its strict
+    // query schema intentionally excludes GameStream's uniqueid/uuid fields.
+    const QString arguments = scale > 0 ?
+        QString("scale=%1&displayToken=%2").arg(scale).arg(
+            QString::fromLatin1(QUrl::toPercentEncoding(displayToken))) : QString();
+    std::unique_ptr<QNetworkReply> reply(openConnection(m_BaseUrlHttps,
+        "office/display-scale", arguments, 3000, NVLL_NONE, scale > 0, false));
+    return QString::fromUtf8(reply->readAll());
+}
+
 QNetworkReply*
 NvHTTP::openConnection(QUrl baseUrl,
                        QString command,
                        QString arguments,
                        int timeoutMs,
-                       NvLogLevel logLevel)
+                       NvLogLevel logLevel,
+                       bool post,
+                       bool appendIdentity)
 {
     // Port must be set
     Q_ASSERT(baseUrl.port(0) != 0);
@@ -493,11 +511,14 @@ NvHTTP::openConnection(QUrl baseUrl,
     url.setPath("/" + command);
 
     // Use a placeholder UID for GFE allow them to quit games for each other.
-    url.setQuery("uniqueid=" + (m_UseTrueUid ? IdentityManager::get()->getUniqueId() : "0123456789ABCDEF") +
+    if (appendIdentity) url.setQuery("uniqueid=" + (m_UseTrueUid ? IdentityManager::get()->getUniqueId() : "0123456789ABCDEF") +
                  "&uuid=" + QUuid::createUuid().toRfc4122().toHex() +
                  ((arguments != nullptr) ? ("&" + arguments) : ""));
+    else url.setQuery(arguments);
 
     QNetworkRequest request(url);
+    if (!appendIdentity)
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
 
     // Add our client certificate
     request.setSslConfiguration(IdentityManager::get()->getSslConfig());
@@ -515,7 +536,7 @@ NvHTTP::openConnection(QUrl baseUrl,
 #endif
 
     auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
-    QNetworkReply* reply = m_Nam->get(request);
+    QNetworkReply* reply = post ? m_Nam->post(request, QByteArray()) : m_Nam->get(request);
 
     // Run the request with a timeout if requested
     QEventLoop loop;
