@@ -12,6 +12,7 @@
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
 | `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI |
 | `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |
+| `app/office/devicename.*` / `backend/nvpairingmanager.cpp` | 配对 `devicename` 取本机电脑名称（mac 用 SystemConfiguration），清洗、截断到 64 字节 UTF-8 并 URL 编码；上游只把五处 `devicename=roth` 换成同一个参数 |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
 | `app/office/DeskHome.qml` / `DeskView.qml` | 设备工作台；真实 ComputerModel 数据与操作，不放未实现功能入口 |
 | `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态 |
