@@ -11,3 +11,4 @@ dist/
 aqtinstall.log
 config.tests/*/.qmake.stash
 config.tests/*/Makefile
+.claude/wip/
