@@ -149,6 +149,15 @@ static void flow() {
         require((host.actions == QStringList{"start", "status", "status", "cancel"}));
         require(office::approvalOutcomeMessage(ApprovalOutcome::Cancelled).isEmpty());
     }
+    {   // Host remembers a denied/expired result for 30 s: start returns it
+        // directly. Final result shown at once; no waiting UI, no cancel.
+        FakeHost host; host.replies << reply("denied");
+        require(run(host) == ApprovalOutcome::Denied);
+        require(host.actions == QStringList{"start"} && host.waitingCalls == 0);
+        FakeHost late; late.replies << reply("expired");
+        require(run(late) == ApprovalOutcome::Expired);
+        require(late.actions == QStringList{"start"} && late.waitingCalls == 0);
+    }
     {   // Cancel before anything was sent: no request at all.
         FakeHost host; host.cancelAtMs = 0;
         require(run(host) == ApprovalOutcome::Cancelled && host.actions.isEmpty());
@@ -177,6 +186,36 @@ static void launchRejection() {
     require(!office::isHostApprovalRequired(401, QStringLiteral("Host approval required")));
     require(!office::isHostApprovalRequired(503, QStringLiteral("Host approval required")));
     require(!office::isHostApprovalRequired(403, QString()));
+
+    // 403 is not a refusal: the host wants a fresh, confirmed connection.
+    const auto required = office::approvalOutcomeMessage(ApprovalOutcome::ApprovalRequired);
+    require(required == QStringLiteral("被控端需要本机确认，请重新连接"));
+    require(!required.contains(QStringLiteral("拒绝")));
+
+    // The dialog the host opened on its own is withdrawn with one cancel,
+    // and a lost cancel never escapes to the session.
+    QStringList sent;
+    office::withdrawApprovalRequest([&sent](const QString& action) { sent << action; return QString(); });
+    require(sent == QStringList{"cancel"});
+    bool escaped = false;
+    try {
+        office::withdrawApprovalRequest([](const QString&) -> QString { throw std::runtime_error("lost"); });
+    } catch (...) { escaped = true; }
+    require(!escaped);
+    office::withdrawApprovalRequest({});
+}
+
+static void bridgeStates() {
+    // Approved after the waiting UI: the workbench goes back to "starting".
+    require(office::approvalBridgeState(ApprovalOutcome::Proceed, true) == QStringLiteral("starting"));
+    require(office::approvalBridgeState(ApprovalOutcome::Proceed, false).isEmpty());
+    require(office::approvalBridgeState(ApprovalOutcome::Cancelled, true).isEmpty());
+    require(office::approvalBridgeState(ApprovalOutcome::Failed, true).isEmpty());
+    require(office::approvalBridgeState(ApprovalOutcome::Denied, false) == QStringLiteral("denied"));
+    require(office::approvalBridgeState(ApprovalOutcome::Expired, true) == QStringLiteral("expired"));
+    require(office::approvalBridgeState(ApprovalOutcome::TimedOut, true) == QStringLiteral("expired"));
+    require(office::approvalBridgeState(ApprovalOutcome::ApprovalRequired, false) ==
+            QStringLiteral("approval_required"));
 }
 
 int main(int argc, char** argv) {
@@ -184,6 +223,7 @@ int main(int argc, char** argv) {
     parser();
     flow();
     launchRejection();
-    std::printf("PASS: %d connect-confirm checks (approved, not_required, denied, expired, timeout, invalid XML, cancel, 403)\n", checks);
+    bridgeStates();
+    std::printf("PASS: %d connect-confirm checks (approved, not_required, denied, expired, timeout, invalid XML, cancel, 403, bridge states)\n", checks);
     return 0;
 }

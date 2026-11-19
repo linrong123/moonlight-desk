@@ -60,24 +60,15 @@ bool Session::officeAwaitApproval(NvHTTP& http) {
         finishWaiting();
         throw;
     }
+    // Capture before finishWaiting() clears the flag: the workbench must leave
+    // the approval text once the host approved.
+    const bool waited = waiting;
     finishWaiting();
 
-    switch (outcome) {
-    case office::ApprovalOutcome::Proceed:
-        if (waiting && bridge) bridge->report("starting");
-        return true;
-    case office::ApprovalOutcome::Cancelled:
-        return false;
-    case office::ApprovalOutcome::Denied:
-        if (bridge) bridge->report("denied");
-        break;
-    case office::ApprovalOutcome::Expired:
-    case office::ApprovalOutcome::TimedOut:
-        if (bridge) bridge->report("expired");
-        break;
-    case office::ApprovalOutcome::Failed:
-        break;
-    }
+    const QString state = office::approvalBridgeState(outcome, waited);
+    if (bridge && !state.isEmpty()) bridge->report(state);
+    if (outcome == office::ApprovalOutcome::Proceed) return true;
+    if (outcome == office::ApprovalOutcome::Cancelled) return false;
     // Host decisions are final: retryable=false ends the recovery chain in
     // officeRetryDelay() (RecoveryPolicy itself is UI-thread only).
     m_Office->retryable = false;
@@ -89,8 +80,16 @@ bool Session::officeApprovalRejected(const GfeHttpResponseException& error) {
     if (!office::isHostApprovalRequired(error.getStatusCode(),
                                         QString::fromUtf8(error.getStatusMessage()))) return false;
     m_Office->retryable = false;
-    if (auto* bridge = office::SessionBridge::instance()) bridge->report("denied");
-    emit displayLaunchError(office::approvalOutcomeMessage(office::ApprovalOutcome::Denied));
+    // The host opens a confirmation dialog on its own after this 403. The
+    // client gives up on this attempt, so withdraw that dialog (best effort).
+    NvHTTP http(m_Computer);
+    office::withdrawApprovalRequest([&http](const QString& action) {
+        return http.requestOfficeConnect(action);
+    });
+    constexpr auto outcome = office::ApprovalOutcome::ApprovalRequired;
+    if (auto* bridge = office::SessionBridge::instance())
+        bridge->report(office::approvalBridgeState(outcome, false));
+    emit displayLaunchError(office::approvalOutcomeMessage(outcome));
     return true;
 }
 

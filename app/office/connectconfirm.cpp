@@ -93,9 +93,7 @@ ConnectConfirmResponse parseConnectConfirmResponse(const QString& response)
 ApprovalOutcome waitForHostApproval(const ApprovalHooks& hooks)
 {
     const std::int64_t deadline = hooks.now() + approvalDeadlineMs;
-    const auto withdraw = [&hooks] {
-        try { hooks.request(QStringLiteral("cancel")); } catch (...) {}
-    };
+    const auto withdraw = [&hooks] { withdrawApprovalRequest(hooks.request); };
 
     try {
         QString action = QStringLiteral("start");
@@ -142,6 +140,12 @@ ApprovalOutcome waitForHostApproval(const ApprovalHooks& hooks)
     }
 }
 
+void withdrawApprovalRequest(const std::function<QString(const QString& action)>& request)
+{
+    if (!request) return;
+    try { request(QStringLiteral("cancel")); } catch (...) {}
+}
+
 bool isHostApprovalRequired(int statusCode, const QString& statusMessage)
 {
     return statusCode == 403 && statusMessage == QLatin1String("Host approval required");
@@ -157,6 +161,25 @@ QString approvalOutcomeMessage(ApprovalOutcome outcome)
         return QStringLiteral("被控端未在 60 秒内确认");
     case ApprovalOutcome::Failed:
         return QStringLiteral("无法确认被控端授权状态");
+    case ApprovalOutcome::ApprovalRequired:
+        return QStringLiteral("被控端需要本机确认，请重新连接");
+    default:
+        return {};
+    }
+}
+
+QString approvalBridgeState(ApprovalOutcome outcome, bool waited)
+{
+    switch (outcome) {
+    case ApprovalOutcome::Proceed:
+        return waited ? QStringLiteral("starting") : QString();
+    case ApprovalOutcome::Denied:
+        return QStringLiteral("denied");
+    case ApprovalOutcome::Expired:
+    case ApprovalOutcome::TimedOut:
+        return QStringLiteral("expired");
+    case ApprovalOutcome::ApprovalRequired:
+        return QStringLiteral("approval_required");
     default:
         return {};
     }

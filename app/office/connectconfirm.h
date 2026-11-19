@@ -21,7 +21,9 @@ struct ConnectConfirmResponse {
 // one <state> with a known value; anything malformed returns defaults.
 ConnectConfirmResponse parseConnectConfirmResponse(const QString& response);
 
-enum class ApprovalOutcome { Proceed, Denied, Expired, TimedOut, Cancelled, Failed };
+// ApprovalRequired: launch/resume answered 403 "Host approval required"
+// (no permit was available, e.g. it was used or expired before launch).
+enum class ApprovalOutcome { Proceed, Denied, Expired, TimedOut, Cancelled, Failed, ApprovalRequired };
 
 constexpr int approvalPollIntervalMs = 1000;
 constexpr int approvalDeadlineMs = 65000;
@@ -42,9 +44,18 @@ struct ApprovalHooks {
 // exceptions also send `cancel` and are then rethrown to the caller.
 ApprovalOutcome waitForHostApproval(const ApprovalHooks& hooks);
 
+// Best-effort `action=cancel`; transport errors are swallowed. Used to withdraw
+// the dialog the host opens on its own after a 403 launch/resume.
+void withdrawApprovalRequest(const std::function<QString(const QString& action)>& request);
+
 // launch/resume rejected because no approval permit was available.
 bool isHostApprovalRequired(int statusCode, const QString& statusMessage);
 
 // User-visible text for terminal outcomes; empty for Proceed and Cancelled.
 QString approvalOutcomeMessage(ApprovalOutcome outcome);
+
+// Session-bridge state to report for an outcome; `waited` is true when the
+// waiting UI was shown. Proceed after waiting returns "starting" so the
+// workbench leaves the approval text; empty means report nothing.
+QString approvalBridgeState(ApprovalOutcome outcome, bool waited);
 }

@@ -14,7 +14,7 @@
 | `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |
 | `app/office/devicename.*` / `backend/nvpairingmanager.cpp` | 配对 `devicename` 取本机电脑名称（mac 用 SystemConfiguration），清洗、截断到 64 字节 UTF-8 并 URL 编码；上游只把五处 `devicename=roth` 换成同一个参数 |
 | `app/office/connectconfirm.*` / `backend/nvhttp.*` | 每次连接确认：`office/connect-request` 严格 XML 解析（唯一 `state`、合法枚举）、start→status 1 秒轮询、65 秒客户端期限、取消/超时/传输异常撤回；走配对 HTTPS GET，无 HTTP 降级 |
-| `app/office/sessionhooks.cpp` / `streaming/session.*` | `startConnectionAsync` 在 launch/resume 前调用 `officeAwaitApproval`；launch/resume 返回 403 `Host approval required` 视为拒绝；拒绝/超时/失败置不可恢复，不自动重试；新增信号 `officeApprovalWaiting` |
+| `app/office/sessionhooks.cpp` / `streaming/session.*` | `startConnectionAsync` 在 launch/resume 前调用 `officeAwaitApproval`；批准后向工作台报告 `starting`；launch/resume 返回 403 `Host approval required` 时尽力发送 `action=cancel` 撤回服务端自动弹出的确认窗，报告 `approval_required`，提示“被控端需要本机确认，请重新连接”；拒绝/超时/失败置不可恢复，不自动重试；新增信号 `officeApprovalWaiting` |
 | `app/office/ApprovalWaiting.qml` / `gui/StreamSegue.qml` | 串流准备页显示等待确认与“取消”，取消复用 `cancelDeskClose()`；等待时隐藏“取消恢复” |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
 | `app/office/DeskHome.qml` / `DeskView.qml` | 设备工作台；真实 ComputerModel 数据与操作，不放未实现功能入口 |
@@ -43,7 +43,7 @@
 
 ## 协议扩展
 
-完整契约见 [CONNECTION.md](CONNECTION.md)。每次连接确认：已配对 HTTPS `serverinfo` 宣告 `OfficeConnectConfirm=1` 时，客户端在 launch/resume 前调用 `office/connect-request?action=start`，`pending` 时每 1 秒 `action=status`，最多 65 秒；`approved`/`not_required` 继续，`denied`/`expired` 终止，用户取消或客户端超时发送 `action=cancel`。XML 必须恰好一个 `state` 且为已知枚举，否则按失败处理并撤回；未知叶子字段忽略以便服务端扩展诊断信息。launch/resume 以 XML `status_code=403`、`status_message="Host approval required"` 拒绝时视为被拒。自动恢复同样先 start，由服务端 120 秒宽限直接返回 `approved`。未宣告能力的主机不调用。
+完整契约见 [CONNECTION.md](CONNECTION.md)。每次连接确认：已配对 HTTPS `serverinfo` 宣告 `OfficeConnectConfirm=1` 时，客户端在 launch/resume 前调用 `office/connect-request?action=start`，`pending` 时每 1 秒 `action=status`，最多 65 秒；`approved`/`not_required` 继续，`denied`/`expired` 终止，用户取消或客户端超时发送 `action=cancel`。XML 必须恰好一个 `state` 且为已知枚举，否则按失败处理并撤回；未知叶子字段忽略以便服务端扩展诊断信息。launch/resume 以 XML `status_code=403`、`status_message="Host approval required"` 退回时不重试：服务端会同时自动发起一次确认，客户端随即尽力发送一次 `action=cancel` 撤回该弹窗，并提示“被控端需要本机确认，请重新连接”（不称“拒绝”）。服务端在 denied/expired 后 30 秒内对同一证书的 start 直接返回原结果，客户端按普通 denied/expired 处理，无需额外逻辑。自动恢复同样先 start，由服务端 120 秒宽限直接返回 `approved`。未宣告能力的主机不调用。
 
 Sunshine Desk 在已配对 HTTPS `serverinfo` 宣告 `OfficeCursorSet=1`。客户端才会调用已认证 `office/cursor?visible=0|1`。请求设置目标值，不 toggle；重复请求不会反转。成功还需 XML `cursorVisible` 与目标一致。
 

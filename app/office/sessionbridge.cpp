@@ -64,7 +64,8 @@ void SessionBridge::report(const QString& state) {
     if (!m_Worker) return;
     // Status enum only: never forward logging, pairing codes or frame data.
     if (state != "starting" && state != "connected" && state != "recovering" && state != "error" &&
-        state != "approval" && state != "denied" && state != "expired") return;
+        state != "approval" && state != "denied" && state != "expired" &&
+        state != "approval_required") return;
     QMetaObject::invokeMethod(m_Worker, [socket = static_cast<QLocalSocket*>(m_Worker), state] {
         socket->setProperty("deskState", state.toUtf8());
         if (socket->state() == QLocalSocket::ConnectedState) socket->write(state.toUtf8() + '\n');
