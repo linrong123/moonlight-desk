@@ -15,6 +15,12 @@ cd "$ROOT/build/office-tests/sessions"
 "$QT_BIN/qmake" "$ROOT/tests/office/sessions/sessions.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
 make -j4
 ./office-sessions-test
+# Native toolbar checks compile the production SDL/AppKit adapter. A clean CI
+# checkout has no libs/mac yet, so prepare the same pinned upstream dependencies
+# used by build.sh before compiling the hidden native check.
+if [[ ! -d "$ROOT/libs/mac" ]]; then
+  (cd "$ROOT" && python3 setup-deps.py)
+fi
 mkdir -p "$ROOT/build/office-tests/toolbar" "$ROOT/build/office-tests/displayscale"
 cd "$ROOT/build/office-tests/toolbar"
 "$QT_BIN/qmake" "$ROOT/tests/office/toolbar/check.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
