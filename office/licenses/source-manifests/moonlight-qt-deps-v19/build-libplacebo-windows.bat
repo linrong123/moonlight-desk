@@ -1,0 +1,31 @@
+setlocal
+
+rem Build using the CL frontend for Clang
+set CC=clang-cl
+set CXX=clang-cl
+
+set OUTDIR=%CD%\..\build\libplacebo\build_%1
+mkdir %OUTDIR%
+
+rem Apply the patch required to build
+git apply ..\patches\libplacebo_shaderc_win.patch || exit /b 1
+
+rem Add the Vulkan SDK to the library and include path
+set "LIB=%LIB%;%VULKAN_SDK%\Lib"
+set "INCLUDE=%INCLUDE%;%VULKAN_SDK%\Include"
+
+rem Enable security mitigations
+set CFLAGS=%CFLAGS% /guard:cf /guard:ehcont
+set CXXFLAGS=%CXXFLAGS% /guard:cf /guard:ehcont
+set LDFLAGS=%LDFLAGS% /guard:cf /guard:ehcont
+if /I "%1" NEQ "ARM64" (
+    set LDFLAGS=%LDFLAGS% /CETCOMPAT
+)
+
+meson setup --prefix=%OUTDIR% -Ddefault_library=shared -Dbuildtype=debugoptimized -Ddemos=false -Dtests=false -Dopengl=disabled -Dd3d11=disabled -Dvulkan=enabled -Dvk-proc-addr=disabled -Dxxhash=disabled -Dshaderc=enabled build || exit /b 1
+ninja -C build || exit /b 1
+ninja -C build install || exit /b 1
+
+rem This build was in-tree, so clean it up
+git reset --hard || exit /b 1
+git clean -f -d -x || exit /b 1

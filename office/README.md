@@ -39,3 +39,5 @@ open dist/MoonlightOffice.app
 本轮保留上游编码/传输性能，不宣称降低跨洋基础延迟，不自动安装虚拟显示驱动，也不包含公网中转服务。主机发现、首次账户设置和配对仍需用户完成，尚不是最终零配置安装体验。
 
 查看 [验证记录](VALIDATION.md) 区分已通过的本地检查和待完成的双端实测。[上游维护说明](UPSTREAM.md) 记录所有适配位置。保留上游 GPLv3 许可及依赖许可；这是独立社区定制项目，不是 Moonlight/Sunshine 官方发行版。
+
+[第三方许可与源码出处](THIRD_PARTY.md) 随包保存；`Contents/Resources/OfficeSource/SOURCE.json` 给出确切源码提交。当前是开发版，SDK 间接组件的精确来源映射仍有待补项，未制作正式二进制发行版。

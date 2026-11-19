@@ -1,12 +1,11 @@
 #include "office/toolbar.h"
 #include <QGuiApplication>
+#include <QTimer>
 #include <cstdio>
 
 // Local UI harness using the production native toolbar and SDL event loop.
 // It deliberately has no connection, pairing identity or remote input sender.
-int main(int argc, char** argv) {
-    QGuiApplication app(argc, argv);
-    QCoreApplication::setApplicationName("OfficeToolbarPreview");
+static int runPreview() {
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO) != 0) return 1;
     auto window = SDL_CreateWindow("Office 工具栏本地验证 · 未连接任何电脑",
@@ -34,4 +33,12 @@ int main(int argc, char** argv) {
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
+}
+
+int main(int argc, char** argv) {
+    QGuiApplication app(argc, argv);
+    QCoreApplication::setApplicationName("OfficeToolbarPreview");
+    // Match Session::exec(): enter SDL only after Qt/AppKit have initialized.
+    QTimer::singleShot(0, [&app] { app.exit(runPreview()); });
+    return app.exec();
 }

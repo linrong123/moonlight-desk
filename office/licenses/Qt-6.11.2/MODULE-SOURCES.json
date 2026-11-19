@@ -1,0 +1,38 @@
+[
+  {
+    "name": "qtbase",
+    "versionInfo": "ef55f427+HEAD",
+    "downloadLocation": "git://code.qt.io/qt/qtbase.git@ef55f427f2c8b410d34f8a7681020a3000cf6866",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  },
+  {
+    "name": "qtdeclarative",
+    "versionInfo": "4e3399c2+HEAD",
+    "downloadLocation": "git://code.qt.io/qt/qtdeclarative.git@4e3399c26ec57246c08de019cfcbda8d23604cfa",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  },
+  {
+    "name": "qtsvg",
+    "versionInfo": "17ca512+HEAD",
+    "downloadLocation": "git://code.qt.io/qt/qtsvg.git@17ca512f903f935282ebeca496aac5d11ba4199a",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  },
+  {
+    "name": "qtimageformats",
+    "versionInfo": "6.11.2",
+    "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  },
+  {
+    "name": "qtshadertools",
+    "versionInfo": "6.11.2",
+    "downloadLocation": "git://code.qt.io/qt/qtshadertools.git",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  },
+  {
+    "name": "qttranslations",
+    "versionInfo": "6.11.2",
+    "downloadLocation": "git://code.qt.io/qt/qttranslations.git",
+    "copyrightText": "Copyright (C) The Qt Company Ltd. and other contributors."
+  }
+]

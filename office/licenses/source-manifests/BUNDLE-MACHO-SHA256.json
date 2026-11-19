@@ -1,0 +1,557 @@
+[
+  {
+    "bundle_path": "Contents/MacOS/MoonlightOffice",
+    "sha256": "fb189021abf307bc5d3151d30bfc44aaff73d9492af28f1d7d20bde91e00d285",
+    "bytes": 2812960
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libplacebo.dylib",
+    "sha256": "43cd6a4cb295e5ea02a991529497b781911180e3605451d15af7433e24b6694a",
+    "bytes": 21765792
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libswscale.10.dylib",
+    "sha256": "4a2eb01f2bc0abe30d121204bced0ebda05e066c22a20f821dd1c3ee47bae35c",
+    "bytes": 2931008
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libssl.3.dylib",
+    "sha256": "62db33b87c953e22204ba62b68def8e0b3827e5bf341082d1582bebd25f27279",
+    "bytes": 2028288
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libcrypto.3.dylib",
+    "sha256": "96dd41de42b0513176ac27b8986f276a4030158fd1b001d208a0205350053ee0",
+    "bytes": 10634368
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libSDL2_ttf.dylib",
+    "sha256": "526621e90c5aaf18cba5a9787735101f7d8cbed71e8b6232ad4a34119ad8cce8",
+    "bytes": 1752544
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libSDL2.dylib",
+    "sha256": "494c64c7273c6427f1b8a47e93b98da5f75e8c872e30206e4231cd1b002e8561",
+    "bytes": 2061392
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libMoltenVK.dylib",
+    "sha256": "4106fed493026086b09dea6a409351214b858675fc4079993cf73e77074f15cf",
+    "bytes": 10949904
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libavutil.61.dylib",
+    "sha256": "23641eb657d5eb15cbbde13a338c82ddd202876507c50946eeb77325508a64ae",
+    "bytes": 1787584
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libdiscord-rpc.dylib",
+    "sha256": "c4cc0071d12f766c454977e93219fcd51ade4ad787a05d3e5eb84e62910d9da3",
+    "bytes": 512544
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libSDL3.dylib",
+    "sha256": "49c5164a857c1e82028b59ab75433edecf247cc28dfe20cfaf706b5d0b0749f2",
+    "bytes": 6502752
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libavcodec.63.dylib",
+    "sha256": "08141f7cb39924ca9bb70c5d8594aaa41c6052c5033cabd5e0ecae3b4ed673e2",
+    "bytes": 8982608
+  },
+  {
+    "bundle_path": "Contents/Frameworks/libopus.0.dylib",
+    "sha256": "afc6485c17e954a59fbec30cb8764b932e1c00842ca99ac13d0929b0e83f0ce3",
+    "bytes": 1137904
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtSql.framework/Versions/A/QtSql",
+    "sha256": "b3ba2e6505e503e5a9ca45b38aaed2efddab02d4d7f35efb0a932e0add8a6503",
+    "bytes": 607312
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickDialogs2.framework/Versions/A/QtQuickDialogs2",
+    "sha256": "862fad5935f9e7cd438584f1bd08f7e8d3523427648eea049b37bc265adb6191",
+    "bytes": 390480
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2FluentWinUI3StyleImpl.framework/Versions/A/QtQuickControls2FluentWinUI3StyleImpl",
+    "sha256": "c9cace026a9421464c1b7ac8fde50b61a94e9f5921228b151f92a780d6eb84f1",
+    "bytes": 483264
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQmlModels.framework/Versions/A/QtQmlModels",
+    "sha256": "5d7aabef4d44f6eacfd4d5feb311982e88dbde56c1845dabcb97ef89bc2b99be",
+    "bytes": 1929856
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickVectorImageHelpers.framework/Versions/A/QtQuickVectorImageHelpers",
+    "sha256": "7e8448128fcd97866d9b99acd95c922eb4843ca139c47d3a3d04c2de346345db",
+    "bytes": 384512
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Imagine.framework/Versions/A/QtQuickControls2Imagine",
+    "sha256": "b84d3009d58dec9e0e89c13735ab8f7367ed834a5a3fec1e750b3585013fd7dd",
+    "bytes": 6274640
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2IOSStyleImpl.framework/Versions/A/QtQuickControls2IOSStyleImpl",
+    "sha256": "09fa2d352606223d240792c5b708b60f6d333294a0b7d7227317e02294b02fdc",
+    "bytes": 242112
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtSvg.framework/Versions/A/QtSvg",
+    "sha256": "d1472ece9c499544d5f4d9a2e4eb62251b709fb9f36b620ea23c9561e8771814",
+    "bytes": 1193968
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2UniversalStyleImpl.framework/Versions/A/QtQuickControls2UniversalStyleImpl",
+    "sha256": "4420e0406380657f753e41fe67a9823d7d3492d0a98a4a2b98b9db7f4dac1cde",
+    "bytes": 333104
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtNetwork.framework/Versions/A/QtNetwork",
+    "sha256": "17525d0f0184de0964d0c786a2d0653995a8ac267239ca074e3d6093cf8ee8ae",
+    "bytes": 3410160
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickShapes.framework/Versions/A/QtQuickShapes",
+    "sha256": "d275ab4fa7e0a8daf0383df7a80d03d7d029936bc20c929deef6d667ff6b663e",
+    "bytes": 692192
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtWidgets.framework/Versions/A/QtWidgets",
+    "sha256": "2bb3891bb93133a9705c9f2e0854d55d3f65879c6538e0cbfd75fad383b6cd24",
+    "bytes": 12688320
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2MaterialStyleImpl.framework/Versions/A/QtQuickControls2MaterialStyleImpl",
+    "sha256": "f394d5f4c44585336059a5042e827b340bfc5fffef5608df3a5590b333fa3097",
+    "bytes": 660304
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2MacOSStyleImpl.framework/Versions/A/QtQuickControls2MacOSStyleImpl",
+    "sha256": "a58f18c04485591f97f096297b27a6f57f04869efc33adb37f51a08dd5c7f43e",
+    "bytes": 354848
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQmlLocalStorage.framework/Versions/A/QtQmlLocalStorage",
+    "sha256": "eb29629d8b58a52e69579137cf2233a88c5e5d6993bdd273f1f575db6ecd4f37",
+    "bytes": 182960
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Universal.framework/Versions/A/QtQuickControls2Universal",
+    "sha256": "ff9464d62a421e7838a9e093f3fa56d1723d32c68c624bb43fac95d29bfe51d2",
+    "bytes": 2951696
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtOpenGL.framework/Versions/A/QtOpenGL",
+    "sha256": "e098233155afbc90562495aec58a04f8990f8e0671c5511ed556878d1c870f0c",
+    "bytes": 1243184
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Impl.framework/Versions/A/QtQuickControls2Impl",
+    "sha256": "5b8c047feda31d640a717e22a37571410033cb7be959191ca01f21068707fc7a",
+    "bytes": 688000
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQmlWorkerScript.framework/Versions/A/QtQmlWorkerScript",
+    "sha256": "5fe1bf1f9438474776e33466b3ebe4489a859b24a71b4a6c492d6efa5ee20747",
+    "bytes": 202048
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickVectorImageGenerator.framework/Versions/A/QtQuickVectorImageGenerator",
+    "sha256": "6306812bd9f3e51e49fb86e3362f1c1dc8e9090ebd64fab73e6e0925f29d819c",
+    "bytes": 604288
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQml.framework/Versions/A/QtQml",
+    "sha256": "305acf8aae94cafa6f134bff72d1c511f8d2a3203a83e03645d48479c294da8b",
+    "bytes": 10160912
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickDialogs2QuickImpl.framework/Versions/A/QtQuickDialogs2QuickImpl",
+    "sha256": "db66ab07fba16ca4492bbc1b8027cb9edbcb33f1d1a019e5c168536bc4a0d2cd",
+    "bytes": 5358832
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtCore.framework/Versions/A/QtCore",
+    "sha256": "82c59c84a0f5d6f3c8fd36651e829e58bed44fd2671733786420ddb13b21898d",
+    "bytes": 12659648
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickEffects.framework/Versions/A/QtQuickEffects",
+    "sha256": "161394fde973ff781a69a34c75aa6d784750bcaa780652b6f8f6f1eec6879f06",
+    "bytes": 744720
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuick.framework/Versions/A/QtQuick",
+    "sha256": "e932fb075578b18605ded07029d3e48d44f56a148ff3532248559519d799db68",
+    "bytes": 12556560
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickDialogs2Utils.framework/Versions/A/QtQuickDialogs2Utils",
+    "sha256": "cbefe8096560a68f5214614bd9cba72f70ca266ab32ce57401427b41b7879e07",
+    "bytes": 138768
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickTemplates2.framework/Versions/A/QtQuickTemplates2",
+    "sha256": "0625ecddfd7e69daa144a0da5b384cbe7b2675fe6dc9c7068f7f8338b2895b64",
+    "bytes": 4181872
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Fusion.framework/Versions/A/QtQuickControls2Fusion",
+    "sha256": "67d01d6c00611baa6f88094bc286bf5a1ae9c18a0bf652b95593a32199fdc92f",
+    "bytes": 2812944
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtDBus.framework/Versions/A/QtDBus",
+    "sha256": "740def088686f639b0f72010144dc961fdb8beaf80d497c0d4323dca8de84686",
+    "bytes": 1433664
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtGui.framework/Versions/A/QtGui",
+    "sha256": "f309843fe582648a2928e88470faaac749fed17926383a4c3c70e64301e493d3",
+    "bytes": 17825344
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickVectorImage.framework/Versions/A/QtQuickVectorImage",
+    "sha256": "b951b62bbc4206cb5d2a1c2796973c60cf446cf29c3c05fcf8cc1cec20a739ca",
+    "bytes": 221520
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Basic.framework/Versions/A/QtQuickControls2Basic",
+    "sha256": "f628a354797424eab08fcd8f975cad3677a6104a0ddcac72edd0ff12072bc803",
+    "bytes": 3422624
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickLayouts.framework/Versions/A/QtQuickLayouts",
+    "sha256": "824e06447397154eb971b7cb92241c28c0c735b80151f7e680a66d22ae69abd2",
+    "bytes": 700576
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQmlXmlListModel.framework/Versions/A/QtQmlXmlListModel",
+    "sha256": "e9e606ce52d498e0fff4d646f04db90d7b34e3db011c1ba6c8a08916f502abb2",
+    "bytes": 295248
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2Material.framework/Versions/A/QtQuickControls2Material",
+    "sha256": "2cc57628db0d902a3dd28efbb03e7cc8ed4173362ab5a0b0a09849f049551eb9",
+    "bytes": 3568000
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickShapesDesignHelpers.framework/Versions/A/QtQuickShapesDesignHelpers",
+    "sha256": "bdb039d278e68c37f6d5f6163f0d0fdac994be44eb5e352e8d660851dc00abdd",
+    "bytes": 453632
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2FusionStyleImpl.framework/Versions/A/QtQuickControls2FusionStyleImpl",
+    "sha256": "7391e84fcd2dda7a2a2660a46947ed25c8fcb97c0a7fd2aba1d53e5421aeeb68",
+    "bytes": 415456
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQmlMeta.framework/Versions/A/QtQmlMeta",
+    "sha256": "9e66bc056d36a8da45dca2eb7ba6af203896dbb436b947851ea74d0d0de59bee",
+    "bytes": 356144
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2BasicStyleImpl.framework/Versions/A/QtQuickControls2BasicStyleImpl",
+    "sha256": "fe70889eff380378f7bdd247548b3457d88fdb84925c4b951c83d2b556c894c8",
+    "bytes": 233232
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2ImagineStyleImpl.framework/Versions/A/QtQuickControls2ImagineStyleImpl",
+    "sha256": "5dbf991ccdffa2020c721e0c7c6f133bcf38dd8a93e7f61ca00ef14a08aab1a7",
+    "bytes": 204416
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickParticles.framework/Versions/A/QtQuickParticles",
+    "sha256": "4e66b0d13f9f2ecf66736f6a31758bcb024c98742d15cd089d3fbe52fe44d0f5",
+    "bytes": 1158272
+  },
+  {
+    "bundle_path": "Contents/Frameworks/QtQuickControls2.framework/Versions/A/QtQuickControls2",
+    "sha256": "2fe2f19aed8aa3ca88e1cf344577671fdf7a2d394e5d3058b377ff1618df912a",
+    "bytes": 271248
+  },
+  {
+    "bundle_path": "Contents/PlugIns/platforms/libqcocoa.dylib",
+    "sha256": "f463939526a0ecebfd8fb065ad4f3f4dcd9ed7f3fb5cdd6593651e27602e7bb0",
+    "bytes": 1963696
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqmlxmllistmodelplugin.dylib",
+    "sha256": "6ed18c309a241eb1e6f79ee3900976db2a68bf11f27296f2fcfe42ef179499a5",
+    "bytes": 101632
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libworkerscriptplugin.dylib",
+    "sha256": "14ba63ad453ef1fc339ea912b86fca561328c859f55502f9f013be2c93482beb",
+    "bytes": 101632
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libquicktoolingplugin.dylib",
+    "sha256": "54c26b0d02891fd288fd6814445794e5f4c1886b627e517b0feafdd80e412fe9",
+    "bytes": 170704
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickdialogsplugin.dylib",
+    "sha256": "5aea42c8c8ff523949364f4d7633d8a5ed68267cc9bf099e1b76da1ff9a32c84",
+    "bytes": 118048
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2universalstyleimplplugin.dylib",
+    "sha256": "262f38b3cbaf9f53bd36209ad5d0784f584a0272d5846dc05d5052ba6ada6a73",
+    "bytes": 101680
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickshapesdesignhelpersplugin.dylib",
+    "sha256": "3a39aedf578ff69ebd01adc37281a213c43de94a3bce7c50aeab1317e8d37f3e",
+    "bytes": 134464
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libparticlesplugin.dylib",
+    "sha256": "b0a85ecef4cd002ce91694c18f2d0f2c507a21e58f6699f47860efbb046250c6",
+    "bytes": 134432
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libmodelsplugin.dylib",
+    "sha256": "a2e8f6765af364a991d52015477a36ca9f91da82f9b2cbe57482e9bedb1eceee",
+    "bytes": 101616
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2fluentwinui3styleplugin.dylib",
+    "sha256": "d03321161bcc9155149b20db8574fc4e4382fbac213166fb1c802ca08869ace0",
+    "bytes": 6467888
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2fluentwinui3styleimplplugin.dylib",
+    "sha256": "0c5186f2d29bd1c739ea76a78ed3c2f6a10c49a38d29c3d4a41f96ee559d57b5",
+    "bytes": 101680
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2macosstyleplugin.dylib",
+    "sha256": "1a8366d37cb055de6bd87c5e91def5fd3c1a4f472f3b4d9e777cb5c12f4077af",
+    "bytes": 1492640
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libeffectsplugin.dylib",
+    "sha256": "e5c9ba02f9902e5cb6fe49a05bf3f27e950b195e876900a95c1fa2318315cf72",
+    "bytes": 118048
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqquicklayoutsplugin.dylib",
+    "sha256": "8f0e5530c9f91c342d03f01b4c10dd60a0342cd75efd97533bd23a14e6aa2d15",
+    "bytes": 101632
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqmlshapesplugin.dylib",
+    "sha256": "2c983ca0cdff02bfdfe9dba44bf612fad9c5d2a29d17dbbd56571ae6e4dcfb70",
+    "bytes": 134528
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2materialstyleplugin.dylib",
+    "sha256": "2f81be6558ec7dd2c9e7d72f7e4d9682f8936b967085b9f71c8de3e639f731f9",
+    "bytes": 135024
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqmlplugin.dylib",
+    "sha256": "3cca358b4eb38f777d612d6780fb9df8ab6881d54eacae7faca7709f53680b1e",
+    "bytes": 101600
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2basicstyleplugin.dylib",
+    "sha256": "640a71fd894fe47497731e6585e2220e2f54778ce2bd41b3b7aa0752f2e4c3e4",
+    "bytes": 134912
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2implplugin.dylib",
+    "sha256": "828d88ae9d8f9b86ce20500aa24e920cbca6fad6be105fbebbfdbbe7127e07e6",
+    "bytes": 118064
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquick2plugin.dylib",
+    "sha256": "d606b1bec7df0157a8f55dde4d9fe1b00ffa399f45f7343bb5dcf06e9f8b2b01",
+    "bytes": 134496
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2nativestyleplugin.dylib",
+    "sha256": "9df124bd31d76d3a2d35b36db29bb9283846ce916e9be77cd17b7cb43768426b",
+    "bytes": 2162960
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libquickwindowplugin.dylib",
+    "sha256": "02bcdbfd39604bf3a83bc0fd8cce040f454f780aa9c3b29c3172dbe1c63a5a48",
+    "bytes": 102112
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2imaginestyleplugin.dylib",
+    "sha256": "d246f683d184fdc95f618e7ee39543acef8c50e81f5b0bc059464fd2ddceeede",
+    "bytes": 134800
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqmllocalstorageplugin.dylib",
+    "sha256": "89c2b267a914af1f3bf8ecbc6fe6f42230f249a578f9003903ee0d7293e9540b",
+    "bytes": 101632
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2fusionstyleimplplugin.dylib",
+    "sha256": "86487d94da66b3b5dce569eb3ffb864f79f49affa104769e692a10b44f742ef2",
+    "bytes": 101664
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2iosstyleplugin.dylib",
+    "sha256": "6ed25e4fd0bd102f89b9eadf469b2805442ec6cefef50225ed584189e8193714",
+    "bytes": 4089984
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqquickvectorimageplugin.dylib",
+    "sha256": "dbc30e0f847024c2dfd31656b94c775540261f03d7fe67356536f2bc01a2d813",
+    "bytes": 101632
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2iosstyleimplplugin.dylib",
+    "sha256": "ea4d25dd894170ade16a8de9084c50e66e8709f0d504a170fbec0c4de54fa661",
+    "bytes": 101664
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2universalstyleplugin.dylib",
+    "sha256": "a7db8a61efadc940a2862aefaf76792b0fa8a4394880e3ed33ea8526dc6f407d",
+    "bytes": 135040
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2macosstyleimplplugin.dylib",
+    "sha256": "ecf9ef9752fdf892e88776a8b770341e46e64767c3bd6e29f8822d383f525575",
+    "bytes": 101664
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2fusionstyleplugin.dylib",
+    "sha256": "52cad9789810bfb45f91ba00b9b7ea24bfd1fc44da98a1146ee712783f1c211c",
+    "bytes": 134800
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquicktemplates2plugin.dylib",
+    "sha256": "2d1c048f2dfd8dd69e018a07c6107317a57c8291acd3224c8433e9090849dcf9",
+    "bytes": 134896
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqquickvectorimagehelpersplugin.dylib",
+    "sha256": "25f934ccdb2b8c3e57d7b82195b758405155af76187b7d16436502380df0408b",
+    "bytes": 101664
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2imaginestyleimplplugin.dylib",
+    "sha256": "bb7ff37534545f7811831a538f6d1b1118d9d4f297ab9e97af178c4dc5e91000",
+    "bytes": 101680
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2basicstyleimplplugin.dylib",
+    "sha256": "9e8fbbb9270b712e0d68a5ace067c759204a08bedf3d90c8218d397e6c2b4529",
+    "bytes": 101664
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickdialogs2quickimplplugin.dylib",
+    "sha256": "292f6d70719925696721a5ca9222082bdc11a7cadad83615e2863529ede1156d",
+    "bytes": 118080
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2materialstyleimplplugin.dylib",
+    "sha256": "f1c3cb7da64e7eb432672a0253743fe18a1c5c6da1085b2bedd0058a801d8b5c",
+    "bytes": 101680
+  },
+  {
+    "bundle_path": "Contents/PlugIns/quick/libqtquickcontrols2plugin.dylib",
+    "sha256": "f27428bdf7fcf3b7e52d66721c1313705e4652c1089fcc36953eb569cb2d36c6",
+    "bytes": 170816
+  },
+  {
+    "bundle_path": "Contents/PlugIns/styles/libqmacstyle.dylib",
+    "sha256": "08b411d311c8b1f1cbe94cc550ab229011951c9a5f619f545a2a6c80efb9afb1",
+    "bytes": 510784
+  },
+  {
+    "bundle_path": "Contents/PlugIns/tls/libqsecuretransportbackend.dylib",
+    "sha256": "b4c18c2ba1e8dd87c225f26ac6fd61e03c589c5de5ede0afb9d6e1410297a40e",
+    "bytes": 478384
+  },
+  {
+    "bundle_path": "Contents/PlugIns/tls/libqopensslbackend.dylib",
+    "sha256": "96d534cb36d77922daf24d088319bf655c2d627a8ce8cbdb85347f41dd2c8c16",
+    "bytes": 616640
+  },
+  {
+    "bundle_path": "Contents/PlugIns/tls/libqcertonlybackend.dylib",
+    "sha256": "3cd2561579cbd4fe693ad99c4cd5555486081f94c7323f325b5eb4a1a2ff890b",
+    "bytes": 225728
+  },
+  {
+    "bundle_path": "Contents/PlugIns/iconengines/libqsvgicon.dylib",
+    "sha256": "214b20e4ae9142910bb35d32bf8e94aadaec5ab0fbc4e9b6fe06a028cfa69a53",
+    "bytes": 174160
+  },
+  {
+    "bundle_path": "Contents/PlugIns/sqldrivers/libqsqlite.dylib",
+    "sha256": "f5d399d1cb632ba3514dc53f76604e55d12f0235ddf5118040282b6f98dd5b7c",
+    "bytes": 3293488
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqgif.dylib",
+    "sha256": "139562d45a2418f5d3f69d7485a1557816c9b43f08de8511903fb8c7fc87cf3a",
+    "bytes": 137808
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqwbmp.dylib",
+    "sha256": "70c1cf615b8be65471eeba8eb17eef441b426d7b700cb9455cd6bf0cb574e845",
+    "bytes": 137824
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqwebp.dylib",
+    "sha256": "3f7427fd0349beb240be32021da231f6edbcd6b94b60686170d74f60f9695c35",
+    "bytes": 1133712
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqico.dylib",
+    "sha256": "e2ccd10ead2fb34d01b9aaaa97a95f918e7a42c4711b907a085163d8cfc9235f",
+    "bytes": 139760
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqmacheif.dylib",
+    "sha256": "bf2647cedac55ba41a06514c40486ec795d2e861ecc581ae36a943cabe9171a3",
+    "bytes": 158208
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqjpeg.dylib",
+    "sha256": "ee73941be502bf9c85c4a6818e25e6cf4f1b7bf34afb79498afc87f986a65904",
+    "bytes": 1146576
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqtiff.dylib",
+    "sha256": "60f4b14e3a2bf0cc45c5e51b9175e1a6426a3407263667b9a45e1a44c6dd8f28",
+    "bytes": 980480
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqsvg.dylib",
+    "sha256": "0fe4e8336e5bc598b8b7ff47a90e5f3634647e221d2ec4d9eaedcb2822655c66",
+    "bytes": 139424
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqicns.dylib",
+    "sha256": "ebc39d1862db09e99448e82592519ee288757b4b9399d7231ebc986459d21ee1",
+    "bytes": 157184
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqtga.dylib",
+    "sha256": "14f164b41afcb29189daff9dc5b9d18b1cedaef5957b8934e88a490bbb7128a5",
+    "bytes": 137264
+  },
+  {
+    "bundle_path": "Contents/PlugIns/imageformats/libqmacjp2.dylib",
+    "sha256": "54754f7b5536a6c07dd0cd5364e1f2a1ea5ee482fa044caced0b7f48f85bc40e",
+    "bytes": 158208
+  },
+  {
+    "bundle_path": "Contents/PlugIns/networkinformation/libqapplenetworkinformation.dylib",
+    "sha256": "370ed6744f81ae749ad254c8c198cc55b50aa237b035645d87b9135876695c99",
+    "bytes": 139312
+  }
+]

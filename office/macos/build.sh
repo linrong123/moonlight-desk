@@ -22,6 +22,27 @@ ditto "$BUILD/app/MoonlightOffice.app" "$STAGE/MoonlightOffice.app"
   exit 1
 }
 python3 "$ROOT/office/macos/verify_bundle.py" "$STAGE/MoonlightOffice.app" "$STAGE/deploy.log"
+NOTICES="$STAGE/MoonlightOffice.app/Contents/Resources/OfficeSource"
+mkdir -p "$NOTICES"
+cp "$ROOT/LICENSE" "$NOTICES/LICENSE"
+cp "$ROOT/office/THIRD_PARTY.md" "$NOTICES/THIRD_PARTY.md"
+ditto "$ROOT/office/licenses" "$NOTICES/licenses"
+python3 - "$ROOT" "$NOTICES" <<'PY'
+import json, pathlib, subprocess, sys
+root, notices = map(pathlib.Path, sys.argv[1:])
+commit = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
+data = {
+    'project': 'Moonlight Office',
+    'source_commit': commit,
+    'source_url': f'https://github.com/linrong123/moonlight-office/tree/{commit}',
+    'checkout': 'git clone --recursive https://github.com/linrong123/moonlight-office.git',
+    'build_instructions': 'office/README.md',
+    'upstream_tag': 'v6.2.0',
+    'dependencies_tag': 'moonlight-qt-deps/v19',
+    'working_tree_modified': bool(subprocess.check_output(['git', '-C', str(root), 'status', '--porcelain'], text=True).strip()),
+}
+(notices / 'SOURCE.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+PY
 codesign --force --deep --sign - "$STAGE/MoonlightOffice.app"
 codesign --verify --deep --strict "$STAGE/MoonlightOffice.app"
 if [[ -d "$ROOT/dist/MoonlightOffice.app" ]]; then

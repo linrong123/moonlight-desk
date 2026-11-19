@@ -1,0 +1,23 @@
+set REPO_PATH=..\..\..\sdl2-compat
+
+rem Set linker flags to produce PDB with Release build type
+rem This is preferable to RelWithDebInfo. See https://gitlab.kitware.com/cmake/cmake/-/issues/20812
+set CFLAGS=/O2 /DNDEBUG /Zi /Gy
+set CXXFLAGS=/O2 /DNDEBUG /Zi /Gy
+set LDFLAGS=/DEBUG:FULL /OPT:REF /OPT:ICF
+
+rem Enable security mitigations
+set CFLAGS=%CFLAGS% /guard:cf /guard:ehcont
+set CXXFLAGS=%CXXFLAGS% /guard:cf /guard:ehcont
+set LDFLAGS=%LDFLAGS% /guard:cf /guard:ehcont
+if /I "%1" NEQ "ARM64" (
+    set LDFLAGS=%LDFLAGS% /CETCOMPAT
+)
+
+mkdir build_%1
+cd build_%1 || exit /b 1
+set CMAKE_PREFIX_PATH=..\..\SDL\install_%1
+cmake %CMAKE_ARGS% -DSDL2COMPAT_TESTS=OFF -DSDL2COMPAT_LIBC=ON -A %2 %REPO_PATH% || exit /b 1
+cmake --build . --config Release -v || exit /b 1
+cmake --install . --prefix ..\install_%1 --config Release -v || exit /b 1
+cd ..

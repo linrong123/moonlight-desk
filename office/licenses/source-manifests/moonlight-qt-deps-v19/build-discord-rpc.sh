@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+mkdir build_$1
+cd build_$1
+cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+      -DBUILD_SHARED_LIBS=ON \
+      -DCMAKE_OSX_ARCHITECTURES=$2 \
+      -DCMAKE_OSX_DEPLOYMENT_TARGET=$MACOS_MIN \
+      -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+      ../../../discord-rpc/
+cmake --build . --config Release -v
+cd ..
