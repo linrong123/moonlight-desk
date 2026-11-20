@@ -193,6 +193,10 @@ static const CGFloat officeDeviceNameWidth = 200;
     int currentScale;
     BOOL scalePending;
     BOOL inputPaused;
+    // Clipboard sync toggle (office/CLIPBOARD.md); mirrored from the session.
+    BOOL clipboardSupported;
+    BOOL clipboardEnabled;
+    BOOL clipboardDenied;
     BOOL invalidated;
     BOOL hasDevices;
     BOOL fullscreenShown;
@@ -202,6 +206,7 @@ static const CGFloat officeDeviceNameWidth = 200;
 - (void)scaleChanged:(id)sender;
 - (void)mouseChanged:(id)sender;
 - (void)inputPause:(id)sender;
+- (void)clipboardSync:(id)sender;
 - (void)fullscreen:(id)sender;
 - (void)statistics:(id)sender;
 - (void)disconnect:(id)sender;
@@ -243,6 +248,17 @@ static const CGFloat officeDeviceNameWidth = 200;
     if (invalidated || confirmation) return;
     inputPaused = !inputPaused;
     [self send:office::Action::InputPause first:inputPaused ? 1 : 0 second:0];
+}
+- (void)clipboardSync:(id)sender {
+    (void)sender;
+    if (invalidated || confirmation || !clipboardSupported) return;
+    clipboardEnabled = !clipboardEnabled;
+    [self send:office::Action::Clipboard first:clipboardEnabled ? 1 : 0 second:0];
+}
+- (NSString*)clipboardTip {
+    if (!clipboardSupported) return @"被控端不支持剪贴板同步，请更新被控端";
+    if (clipboardDenied) return @"被控端拒绝了剪贴板同步（可能已在被控端关闭）；重新连接后再试";
+    return @"切换窗口时自动同步文本剪贴板（最多 1 MB），按设备记住";
 }
 - (void)resolutionChanged:(id)sender {
     if (invalidated || confirmation || ![sender isKindOfClass:[NSMenuItem class]]) return;
@@ -384,7 +400,8 @@ static const CGFloat officeDeviceNameWidth = 200;
     [self fillScaleMenu:scaleMenu];
     return display;
 }
-// 鼠标与键盘: three single-choice mouse modes with a note, then 暂停输入.
+// 鼠标与键盘: three single-choice mouse modes with a note, then 暂停输入
+// and 同步剪贴板.
 - (NSMenu*)buildInputMenu {
     NSMenu* input = [self newMenu];
     input.title = @"鼠标与键盘";
@@ -403,6 +420,9 @@ static const CGFloat officeDeviceNameWidth = 200;
     NSMenuItem* pause = [self itemTitled:@"暂停输入" action:@selector(inputPause:) tag:0];
     pause.toolTip = @"暂停期间键盘鼠标不发送到远端";
     [input addItem:pause];
+    NSMenuItem* clipboard = [self itemTitled:@"同步剪贴板" action:@selector(clipboardSync:) tag:0];
+    clipboard.toolTip = [self clipboardTip];
+    [input addItem:clipboard];
     return input;
 }
 // The capsule title: status dot, bold device name, gap, grey summary.
@@ -604,7 +624,7 @@ static const CGFloat officeDeviceNameWidth = 200;
         menuItem.showsIndicator = YES;
         item = menuItem;
         [self decorateIconItem:item symbols:display ? @[@"display"] : @[@"computermouse", @"keyboard"] title:title];
-        item.toolTip = display ? @"显示：分辨率、画面缩放" : @"鼠标与键盘：鼠标模式、暂停输入";
+        item.toolTip = display ? @"显示：分辨率、画面缩放" : @"鼠标与键盘：鼠标模式、暂停输入、剪贴板";
     } else if ([identifier isEqualToString:officeFullscreenId]) {
         title = @"全屏";
         item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
@@ -659,6 +679,10 @@ static const CGFloat officeDeviceNameWidth = 200;
     } else if (selector == @selector(inputPause:)) {
         on = inputPaused;
         enabled = !confirmation;
+    } else if (selector == @selector(clipboardSync:)) {
+        on = clipboardSupported && clipboardEnabled;
+        enabled = clipboardSupported && !confirmation;
+        item.toolTip = [self clipboardTip];
     } else if (selector == @selector(statistics:)) {
         on = panelWanted;
     } else if (selector == @selector(fullscreen:)) {
@@ -821,6 +845,12 @@ public:
     void setInputPaused(bool paused) override {
         // Session state only (for example kept across a reconnect); no Action.
         if (!target->invalidated) target->inputPaused = paused ? YES : NO;
+    }
+    void setClipboard(bool supported, bool enabled, bool denied) override {
+        if (target->invalidated) return;
+        target->clipboardSupported = supported ? YES : NO;
+        target->clipboardEnabled = enabled ? YES : NO;
+        target->clipboardDenied = denied ? YES : NO;
     }
     void setStatus(const char* text) override {
         // Polled from the session loop: also catches fullscreen changes that

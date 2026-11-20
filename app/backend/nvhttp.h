@@ -66,9 +66,10 @@ private:
 class QtNetworkReplyException : public std::exception
 {
 public:
-    QtNetworkReplyException(QNetworkReply::NetworkError error, QString errorText) :
+    QtNetworkReplyException(QNetworkReply::NetworkError error, QString errorText, int httpStatusCode = 0) :
         m_Error(error),
-        m_ErrorText(errorText.toUtf8())
+        m_ErrorText(errorText.toUtf8()),
+        m_HttpStatusCode(httpStatusCode)
     {
 
     }
@@ -88,6 +89,12 @@ public:
         return m_Error;
     }
 
+    // HTTP status of a non-2xx reply, or 0 when no HTTP response arrived.
+    int getHttpStatusCode() const
+    {
+        return m_HttpStatusCode;
+    }
+
     QString toQString() const
     {
         return QString::fromUtf8(m_ErrorText) + " (Error " + QString::number(m_Error) + ")";
@@ -96,6 +103,7 @@ public:
 private:
     QNetworkReply::NetworkError m_Error;
     QByteArray m_ErrorText;
+    int m_HttpStatusCode;
 };
 
 class NvHTTP : public QObject
@@ -146,6 +154,10 @@ public:
 
     // Paired HTTPS only: office/connect-request?action=start|status|cancel.
     QString requestOfficeConnect(const QString& action);
+
+    // Paired HTTPS only: office/clipboard. An empty text reads (GET); a
+    // non-empty UTF-8 body writes (POST). Returns the raw XML response.
+    QString requestOfficeClipboard(const QByteArray& text = {}, int timeoutMs = 3000);
 
     void setServerCert(QSslCertificate serverCert);
     void setAddress(NvAddress address);
@@ -201,7 +213,8 @@ private:
                    int timeoutMs,
                    NvLogLevel logLevel,
                    bool post = false,
-                   bool appendIdentity = true);
+                   bool appendIdentity = true,
+                   const QByteArray& body = QByteArray());
 
     NvAddress m_Address;
     QNetworkAccessManager* m_Nam;

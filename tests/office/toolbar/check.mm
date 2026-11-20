@@ -240,9 +240,10 @@ int main() { @autoreleasepool {
     toolbar->setDisplayScales({},0,false);
     [target menuNeedsUpdate:scaleMenu];
     assert([labels(scaleMenu) isEqualToArray:@[@"不可用"]]);
-    // 鼠标与键盘: three single-choice modes with a grey description, then 暂停输入.
+    // 鼠标与键盘: three single-choice modes with a grey description, then 暂停输入
+    // and 同步剪贴板.
     NSMenu* input = target->inputMenu;
-    assert([labels(input) isEqualToArray:(@[@"本机鼠标（推荐办公）", @"远端鼠标", @"游戏模式（锁定鼠标）", @"-", @"暂停输入"])]);
+    assert([labels(input) isEqualToArray:(@[@"本机鼠标（推荐办公）", @"远端鼠标", @"游戏模式（锁定鼠标）", @"-", @"暂停输入", @"同步剪贴板"])]);
     assert([[input itemAtIndex:0].attributedTitle.string hasSuffix:@"\n显示本机光标，响应最快，适合日常办公"]);
     assert([[input itemAtIndex:1].attributedTitle.string hasSuffix:@"\n显示被控端的光标样式"]);
     assert([[input itemAtIndex:2].attributedTitle.string hasSuffix:@"\n鼠标锁定在画面内，适合游戏或 3D 软件；按 ⌃⌥⇧Z 释放"]);
@@ -261,13 +262,37 @@ int main() { @autoreleasepool {
     assert(checked(input) == (std::vector<NSInteger>{0, 4}));
     [target inputPause:[input itemAtIndex:4]];
     assert(events.back() == std::make_tuple(office::Action::InputPause,0,0) && checked(input) == std::vector<NSInteger>{0});
+    // 同步剪贴板: greyed out with a hint until the host reports OfficeClipboard;
+    // checked per device; a host refusal keeps the choice but explains it.
+    NSMenuItem* clipboardItem = [input itemAtIndex:5];
+    assert(![target validateMenuItem:clipboardItem] && checked(input) == std::vector<NSInteger>{0});
+    assert([clipboardItem.toolTip isEqualToString:@"被控端不支持剪贴板同步，请更新被控端"]);
+    const size_t beforeClipboard = events.size();
+    [target clipboardSync:clipboardItem];
+    assert(events.size() == beforeClipboard);
+    toolbar->setClipboard(true,true,false);
+    assert([target validateMenuItem:clipboardItem] && checked(input) == (std::vector<NSInteger>{0, 5}));
+    assert([clipboardItem.toolTip isEqualToString:@"切换窗口时自动同步文本剪贴板（最多 1 MB），按设备记住"]);
+    [target clipboardSync:clipboardItem];
+    assert(events.back() == std::make_tuple(office::Action::Clipboard,0,0) && checked(input) == std::vector<NSInteger>{0});
+    [target clipboardSync:clipboardItem];
+    assert(events.back() == std::make_tuple(office::Action::Clipboard,1,0) && checked(input) == (std::vector<NSInteger>{0, 5}));
+    toolbar->setClipboard(true,false,false); // remembered off for this device
+    assert([target validateMenuItem:clipboardItem] && checked(input) == std::vector<NSInteger>{0});
+    toolbar->setClipboard(true,true,true);
+    [target validateMenuItem:clipboardItem];
+    assert([clipboardItem.toolTip isEqualToString:@"被控端拒绝了剪贴板同步（可能已在被控端关闭）；重新连接后再试"]);
+    toolbar->setClipboard(true,true,false);
     const size_t beforeSync = events.size();
     toolbar->setInputPaused(true); // restored after reconnect: no event
-    assert(events.size() == beforeSync && checked(input) == (std::vector<NSInteger>{0, 4}));
+    assert(events.size() == beforeSync && checked(input) == (std::vector<NSInteger>{0, 4, 5}));
     // Already paused by the user: the resolution sheet neither pauses nor resumes.
     [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
     assert(events.size() == beforeSync && pendingCompletion);
     assert(![target validateMenuItem:[resolutionMenu itemAtIndex:0]] && ![target validateMenuItem:[input itemAtIndex:4]]);
+    assert(![target validateMenuItem:clipboardItem]);
+    [target clipboardSync:clipboardItem];
+    assert(events.size() == beforeSync); // no toggle behind the confirmation sheet
     complete(NSAlertFirstButtonReturn);
     assert(events.size() == beforeSync + 1 && events.back() == std::make_tuple(office::Action::Resolution,2560,1440));
     toolbar->setInputPaused(false);
@@ -359,5 +384,5 @@ int main() { @autoreleasepool {
     [window close]; [window release];
     [unregistered close]; [unregistered release];
     [listener release]; [empty release];
-    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, toolbar layout (info capsule left, centered icons display/input/fullscreen/devices, red disconnect far right), info capsule title/width/click, icon menus and overflow forms with single check marks (resolution, DPI, mouse), input pause, fullscreen icon/tooltip and auto-hide options, connection info panel, resolution cancel/confirm (also while paused), disconnect/teardown callback safety; no visible UI");
+    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, toolbar layout (info capsule left, centered icons display/input/fullscreen/devices, red disconnect far right), info capsule title/width/click, icon menus and overflow forms with single check marks (resolution, DPI, mouse), input pause, clipboard toggle (unsupported/denied hints), fullscreen icon/tooltip and auto-hide options, connection info panel, resolution cancel/confirm (also while paused), disconnect/teardown callback safety; no visible UI");
 } }
