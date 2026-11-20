@@ -19,6 +19,25 @@ TestCase {
         compare(Logic.normalizeAddress("bad..name"), "")
     }
 
+    function test_ipv6Canonical() {
+        compare(Logic.normalizeAddress("FE80:0:0:0:0:0:0:1"), "[fe80::1]:47989")
+        compare(Logic.normalizeAddress("[fe80:0000::0001]:48000"), "[fe80::1]:48000")
+        compare(Logic.normalizeAddress("2001:db8:0:0:1:0:0:1"), "[2001:db8::1:0:0:1]:47989")
+        compare(Logic.normalizeAddress("1:0:0:2:0:0:0:3"), "[1:0:0:2::3]:47989")
+        compare(Logic.normalizeAddress("::"), "[::]:47989")
+        compare(Logic.normalizeAddress("[::FFFF:192.168.1.1]"), "[::ffff:c0a8:101]:47989")
+        compare(Logic.normalizeAddress("fe80::1%en0"), "[fe80::1%en0]:47989")
+        compare(Logic.normalizeAddress("1:2:3:4:5:6:7:8"), "[1:2:3:4:5:6:7:8]:47989")
+        compare(Logic.normalizeAddress("1:2:3:4:5:6:7:8:9"), "")
+        compare(Logic.normalizeAddress("1::2::3"), "")
+        compare(Logic.normalizeAddress("fe80:::1"), "")
+        compare(Logic.normalizeAddress("::1.2.3.256"), "")
+        compare(Logic.normalizeAddress("[12345::1]"), "")
+        var devices = [{ uuid: "v6", address: "[fe80::1]:47989", addresses: ["[fe80::1]:47989"] }]
+        compare(Logic.findDeviceByAddress(devices, "[FE80:0::1]:47989").uuid, "v6")
+        compare(Logic.findDeviceByAddress(devices, "[fe80::1]:48000"), null)
+    }
+
     function test_findDeviceByAddress() {
         var devices = [
             { uuid: "a", address: "10.0.0.5:47989", addresses: ["10.0.0.5:47989", "pc.lan:47989"] },

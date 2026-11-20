@@ -41,7 +41,7 @@ DeskHome {
         devices: desk.devices
         sessionStates: desk.sessionStates
         onRequestAdd: function(address) { ComputerManager.addNewHostManually(address) }
-        onRequestPair: function(uuid) { desk.beginPairing(uuid) }
+        onRequestPair: function(uuid, resume) { desk.beginPairing(uuid, resume) }
         onRequestOpen: function(uuid) {
             if (pendingAddress !== "") desk.addressText = ""
             desk.openSession(uuid)
@@ -54,16 +54,18 @@ DeskHome {
         function onDataChanged() { desk.bump() }
         function onModelReset() { Qt.callLater(desk.bump) }
         function onPairingCompleted(error) {
+            // At most one pairing is in flight, so this result always ends the
+            // dialog's PIN; a cancelled attempt's result is dropped silently.
             pairDialog.close()
             pairDialog.pin = ""
-            if (!connector.pairingCompleted(error) && error !== undefined && error !== null && error !== "")
+            if (connector.pairingCompleted(error) === "" && error !== undefined && error !== null && error !== "")
                 desk.showError("配对失败：" + error)
         }
     }
     Connections {
         target: ComputerManager
         function onComputerAddCompleted(success, detectedPortBlocking) {
-            if (!connector.addCompleted(success, detectedPortBlocking) && !success)
+            if (connector.addCompleted(success, detectedPortBlocking) === "" && !success)
                 desk.showError(Logic.addFailedText(detectedPortBlocking))
         }
     }
@@ -74,9 +76,14 @@ DeskHome {
         return -1
     }
     function showError(text) { errorDialog.message = text; errorDialog.open() }
-    function beginPairing(uuid) {
+    function beginPairing(uuid, resume) {
         var idx = indexForUuid(uuid)
         if (idx < 0) { connector.pairingCompleted("设备已被移除。"); return }
+        if (resume && pairDialog.pin !== "") {
+            // The cancelled request is still waiting for this PIN on the host.
+            pairDialog.open()
+            return
+        }
         pairDialog.pin = computers.generatePinString()
         pairDialog.open()
         computers.pairComputer(idx, pairDialog.pin)
@@ -118,7 +125,11 @@ DeskHome {
         property string pin: ""
         title: "配对电脑"
         acceptText: ""
+        rejectText: "取消"
         closePolicy: Popup.NoAutoClose
+        // Local give-up only: ComputerModel cannot abort a pairing request.
+        // The PIN is kept so pairing this device again resumes the request.
+        onRejected: connector.cancel()
         Text {
             objectName: "pairPrompt"
             width: parent.width

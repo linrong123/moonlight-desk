@@ -4,6 +4,12 @@ import "desklogic.js" as Logic
 // Address bar flow: find or add the device, pair it when needed, then open
 // the desktop. One attempt per submit; failures are reported once and never
 // retried automatically (pairing/auth errors included).
+//
+// ComputerManager's add and pairing results carry no request identity, so at
+// most one add and one pairing request are in flight at a time. cancel() only
+// abandons the attempt locally: the request keeps running and its late result
+// is swallowed ("stale"). Asking to pair the same device again while its
+// abandoned request is still running resumes waiting on it (same PIN).
 QtObject {
     id: connector
 
@@ -17,6 +23,9 @@ QtObject {
     property string phase: "idle"
     property string pendingAddress: ""
     property string targetUuid: ""
+    // Requests sent to ComputerManager that have not reported back yet.
+    property bool addInFlight: false
+    property string pairInFlightUuid: ""
     readonly property bool busy: phase !== "idle"
     readonly property string statusText: phase === "adding" ? "正在查找这台电脑…"
                                         : phase === "locating" ? "正在读取设备信息…"
@@ -25,7 +34,9 @@ QtObject {
                                         : ""
 
     signal requestAdd(string address)
-    signal requestPair(string uuid)
+    // resume: a pairing request for this device is still running; show its
+    // PIN again instead of starting a new one.
+    signal requestPair(string uuid, bool resume)
     signal requestOpen(string uuid)
     signal failed(string message)
 
@@ -45,13 +56,19 @@ QtObject {
             failed("地址格式不正确。请输入 IP 地址或域名，例如 192.168.1.20。")
             return false
         }
-        pendingAddress = input
         var existing = Logic.findDeviceByAddress(devices, input)
+        if (!existing && addInFlight) {
+            failed("上一次查找还没有结束，请稍候再试。")
+            return false
+        }
+        pendingAddress = input
         if (existing) {
             targetUuid = existing.uuid
             proceed()
         } else {
+            targetUuid = ""
             phase = "adding"
+            addInFlight = true
             requestAdd(input)
         }
         return true
@@ -66,34 +83,41 @@ QtObject {
         return true
     }
 
+    // Result handlers return "handled" (live attempt), "stale" (result of a
+    // cancelled attempt, ignored) or "" (no request of ours was in flight).
     function addCompleted(success, detectedPortBlocking) {
-        if (phase !== "adding") return false
+        if (!addInFlight) return ""
+        addInFlight = false
+        if (phase !== "adding") return "stale"
         if (!success) {
             finish()
             failed(Logic.addFailedText(detectedPortBlocking))
-            return true
+            return "handled"
         }
         phase = "locating"
         timer.interval = locateTimeout
         timer.restart()
         locate()
-        return true
+        return "handled"
     }
 
     function pairingCompleted(error) {
-        if (phase !== "pairing") return false
+        if (pairInFlightUuid === "") return ""
+        pairInFlightUuid = ""
+        if (phase !== "pairing") return "stale"
         if (error !== undefined && error !== null && error !== "") {
             finish()
             failed("配对失败：" + error)
-            return true
+            return "handled"
         }
         phase = "confirming"
         timer.interval = pairedTimeout
         timer.restart()
         proceed()
-        return true
+        return "handled"
     }
 
+    // Abandon the current attempt without an error; the address bar is free again.
     function cancel() {
         finish()
     }
@@ -104,16 +128,19 @@ QtObject {
     }
 
     function locate() {
-        var device = Logic.findDeviceByAddress(devices, pendingAddress)
-        if (!device) return
-        targetUuid = device.uuid
+        // Card entries have no address: wait on the known device instead.
+        if (pendingAddress !== "") {
+            var device = Logic.findDeviceByAddress(devices, pendingAddress)
+            if (!device) return
+            targetUuid = device.uuid
+        }
         proceed()
     }
 
     function proceed() {
         var device = Logic.findDevice(devices, targetUuid)
         if (!device) {
-            if (phase === "confirming") {
+            if (phase === "confirming" || phase === "locating") {
                 finish()
                 failed("设备已被移除。")
             }
@@ -144,9 +171,16 @@ QtObject {
         }
         if (!device.paired) {
             if (phase === "confirming") return // Pair phase is refreshed by the next poll.
+            if (pairInFlightUuid !== "" && pairInFlightUuid !== device.uuid) {
+                finish()
+                failed("另一台电脑的配对还没有结束。请先在那台电脑上输入验证码，或稍后再试。")
+                return
+            }
+            var resume = pairInFlightUuid === device.uuid
             timer.stop()
             phase = "pairing"
-            requestPair(device.uuid)
+            pairInFlightUuid = device.uuid
+            requestPair(device.uuid, resume)
             return
         }
         open(device.uuid)

@@ -5,6 +5,59 @@
 
 var DEFAULT_PORT = 47989
 
+// RFC 5952 text form of an IPv6 literal (lower case, longest zero run
+// compressed, embedded IPv4 as hex), so different spellings of one address
+// match. "" when invalid. A zone suffix ("%en0") is kept as is.
+function canonicalIPv6(text) {
+    var s = String(text), zone = "", pct = s.indexOf("%")
+    if (pct >= 0) { zone = s.slice(pct); s = s.slice(0, pct) }
+    var halves = s.split("::")
+    if (halves.length > 2) return ""
+    function groups(part, allowV4) {
+        if (part === "") return []
+        var list = part.split(":"), out = []
+        for (var i = 0; i < list.length; ++i) {
+            var g = list[i], m
+            if (allowV4 && i === list.length - 1 && g.indexOf(".") >= 0) {
+                m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(g)
+                if (!m) return null
+                var b = [+m[1], +m[2], +m[3], +m[4]]
+                if (b[0] > 255 || b[1] > 255 || b[2] > 255 || b[3] > 255) return null
+                out.push(b[0] * 256 + b[1], b[2] * 256 + b[3])
+            } else {
+                if (!/^[0-9a-f]{1,4}$/.test(g)) return null
+                out.push(parseInt(g, 16))
+            }
+        }
+        return out
+    }
+    var head = groups(halves[0], halves.length === 1)
+    var tail = halves.length === 2 ? groups(halves[1], true) : []
+    if (!head || !tail) return ""
+    var all = head
+    if (halves.length === 2) {
+        var fill = 8 - head.length - tail.length
+        if (fill < 1) return ""
+        all = head.slice()
+        for (var k = 0; k < fill; ++k) all.push(0)
+        all = all.concat(tail)
+    } else if (head.length !== 8) {
+        return ""
+    }
+    var bestStart = -1, bestLen = 1
+    for (var i = 0; i < 8;) {
+        if (all[i] !== 0) { ++i; continue }
+        var j = i
+        while (j < 8 && all[j] === 0) ++j
+        if (j - i > bestLen) { bestStart = i; bestLen = j - i }
+        i = j
+    }
+    var hex = all.map(function(v) { return v.toString(16) })
+    var out = bestStart < 0 ? hex.join(":")
+                            : hex.slice(0, bestStart).join(":") + "::" + hex.slice(bestStart + bestLen).join(":")
+    return out + zone
+}
+
 // Returns "host:port" (lower case) or "[v6]:port"; "" when the text is not a
 // usable address. Mirrors ComputerManager::addNewHostManually closely enough
 // to find an existing device before adding it again.
@@ -14,11 +67,15 @@ function normalizeAddress(text) {
     if (!s || /\s/.test(s)) return ""
     var host = "", port = DEFAULT_PORT, m
     if ((m = /^\[([0-9a-f:.]+(%[a-z0-9_.-]+)?)\](?::(\d+))?$/.exec(s))) {
-        host = "[" + m[1] + "]"
+        host = canonicalIPv6(m[1])
+        if (!host) return ""
+        host = "[" + host + "]"
         if (m[3] !== undefined) port = parseInt(m[3], 10)
     } else if (s.indexOf(":") !== s.lastIndexOf(":")) {
         if (!/^[0-9a-f:.]+(%[a-z0-9_.-]+)?$/.test(s)) return ""
-        host = "[" + s + "]"
+        host = canonicalIPv6(s)
+        if (!host) return ""
+        host = "[" + host + "]"
     } else {
         m = /^([a-z0-9_\u0080-\uffff](?:[a-z0-9_.\-\u0080-\uffff]*[a-z0-9_\u0080-\uffff])?)(?::(\d+))?$/.exec(s)
         if (!m || m[1].indexOf("..") >= 0) return ""

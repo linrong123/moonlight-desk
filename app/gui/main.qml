@@ -53,7 +53,7 @@ ApplicationWindow {
             page.advancedRequested.connect(function() { navigateTo("qrc:/gui/SettingsView.qml", SettingsView) })
     }
     function requestDeskQuit() {
-        if (deskManagerMode) deskQuitDialog.open()
+        if (deskUi) deskQuitDialog.open()
         else quitConfirmationDialog.open()
     }
     Connections {
@@ -549,25 +549,23 @@ ApplicationWindow {
     NavigableMessageDialog {
         id: quitConfirmationDialog
         standardButtons: Dialog.Yes | Dialog.No
-        text: deskManagerMode ? (DeskSessions.count > 0 ? "退出会断开所有远程桌面，确定退出？" : "确定退出 Moonlight Desk？") : qsTr("Are you sure you want to quit?")
+        text: qsTr("Are you sure you want to quit?")
         // For keyboard/gamepad navigation
-        onAccepted: {
-            if (deskManagerMode) DeskSessions.stopAll()
-            Qt.quit()
-        }
+        onAccepted: Qt.quit()
     }
 
-    // Office: Desk manager quit confirmation (Escape/Back on the home page,
-    // the home "退出" button).
+    // Office: Desk quit confirmation (Escape/Back on the first page, the home
+    // "退出" button). The session process closes only its own desktop.
     Office.DeskDialog {
         id: deskQuitDialog
-        title: "退出 Moonlight Desk"
-        message: DeskSessions.count > 0 ? "退出会断开所有远程桌面，确定退出？" : "确定退出 Moonlight Desk？"
+        title: deskManagerMode ? "退出 Moonlight Desk" : "断开远程桌面"
+        message: deskManagerMode ? (DeskSessions.count > 0 ? "退出会断开所有远程桌面，确定退出？" : "确定退出 Moonlight Desk？")
+                                 : "断开这台电脑的远程桌面并关闭窗口？"
         rejectText: "取消"
-        acceptText: "退出"
+        acceptText: deskManagerMode ? "退出" : "断开"
         acceptKind: "danger"
         onAccepted: {
-            DeskSessions.stopAll()
+            if (deskManagerMode) DeskSessions.stopAll()
             Qt.quit()
         }
         onClosed: stackView.forceActiveFocus()

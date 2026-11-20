@@ -17,11 +17,11 @@
 | `app/office/sessionhooks.cpp` / `streaming/session.*` | `startConnectionAsync` 在 launch/resume 前调用 `officeAwaitApproval`；批准后向工作台报告 `starting`；launch/resume 返回 403 `Host approval required` 时尽力发送 `action=cancel` 撤回服务端自动弹出的确认窗，报告 `approval_required`，提示“被控端需要本机确认，请重新连接”；拒绝/超时/失败置不可恢复，不自动重试；新增信号 `officeApprovalWaiting` |
 | `app/office/ApprovalWaiting.qml` / `gui/StreamSegue.qml` | 串流准备页显示等待确认与“取消”，取消复用 `cancelDeskClose()`；等待时隐藏“取消恢复” |
 | `app/office/OfficeRecovery.qml` | finished → cleanup ready → timer → new session；取消/返回不丢失清理所有权 |
-| `app/office/DeskHome.qml` / `DeskView.qml` / `DeskConnector.qml` / `desklogic.js` | 远控式工作台：地址栏连接（已有地址直连，新地址添加→配对→进入）、设备卡片与“⋯”菜单；`DeskHome`/`DeskConnector`/`desklogic.js` 不依赖 C++ 模块，便于 QML 测试；流程每步只提示一次失败，不自动重试；真实 ComputerModel 数据与操作，不放未实现功能入口 |
+| `app/office/DeskHome.qml` / `DeskView.qml` / `DeskConnector.qml` / `desklogic.js` | 远控式工作台：地址栏连接（已有地址直连，新地址添加→配对→进入）、设备卡片与“⋯”菜单；`DeskHome`/`DeskConnector`/`desklogic.js` 不依赖 C++ 模块，便于 QML 测试；流程每步只提示一次失败，不自动重试；配对窗口“取消”仅本地放弃（上游无中止配对接口），同一时间只允许一个添加和一个配对请求，晚到结果忽略；IPv6 按 RFC 5952 规范化匹配；真实 ComputerModel 数据与操作，不放未实现功能入口 |
 | `app/office/DeskSettings.qml` / `DeskButton.qml` / `DeskDialog.qml` / `DeskProgress.qml` / `deskstyle.js` | 简化设置页（只读写注入的 `StreamingPreferences`，自动码率沿用上游 `getDefaultBitrate` 规则）、统一按钮/对话框/过渡页与配色；新增 `StreamingPreferences` 字段不会自动出现，需要时在此补 |
 | `app/gui/computermodel.*` | 新增 `AddressRole`/`AddressesRole`（`address`、`addresses`），供工作台按地址查找已有设备；只读，不改上游角色顺序 |
 | `app/main.cpp`（`deskSessionMode`） | 在 `deskManagerMode` 旁注册 `deskSessionMode`（`SessionBridge::isSessionProcess()`），QML 据此在会话进程中也启用办公界面 |
-| `app/gui/main.qml`（办公界面） | `deskUi = deskManagerMode \|\| deskSessionMode`；办公模式浅色主题、隐藏原版顶部工具栏（仅原版 `SettingsView`“高级设置”页显示，命令式改 `toolBar.visible` 的旧代码由 `onVisibleChanged` 守卫拦下）；齿轮打开 `DeskSettings`（已打开则返回该页）；退出走 `DeskDialog`；保留上游 `quitConfirmationDialog`、`addPcDialog` 供非办公路径；Esc/Back 在根页触发退出确认 |
+| `app/gui/main.qml`（办公界面） | `deskUi = deskManagerMode \|\| deskSessionMode`；办公模式浅色主题、隐藏原版顶部工具栏（仅原版 `SettingsView`“高级设置”页显示，命令式改 `toolBar.visible` 的旧代码由 `onVisibleChanged` 守卫拦下）；齿轮打开 `DeskSettings`（已打开则返回该页）；退出走 `DeskDialog`（`requestDeskQuit()` 按 `deskUi` 选择：管理进程“退出 Moonlight Desk”并 `DeskSessions.stopAll()`，会话进程“断开远程桌面”只关闭自己）；上游 `quitConfirmationDialog` 恢复原样、`addPcDialog` 保留，仅供非办公路径；Esc/Back 在根页触发退出确认 |
 | `app/gui/NavigableMessageDialog.qml` / `ErrorMessageDialog.qml` | 办公模式下隐藏图标、按钮改中文（确定/取消/帮助），错误框不显示“帮助”按钮；非办公路径不变 |
 | `app/gui/StreamSegue.qml` / `CliStartStreamSegue.qml` / `QuitSegue.qml` | 办公模式叠加 `DeskProgress` 过渡页（中文阶段文字原样显示，上游英文阶段统一为“正在连接远程桌面…”/“正在退出…”），原 Row 置透明但保留，状态与取消逻辑不变；`StreamSegue` 的“取消恢复”改用 `DeskButton`；`CliStartStreamSegue` 的“关闭正在运行的应用”提示改中文 |
 | `app/qml.qrc` | 登记新增的 `office/*.qml` 与 `desklogic.js`、`deskstyle.js` |
