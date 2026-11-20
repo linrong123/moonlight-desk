@@ -18,6 +18,13 @@ Moonlight Desk（主控端）与 [Sunshine Desk](https://github.com/linrong123/s
 - [x] 可选「每次连接需本机确认」及主控端等待确认界面（moonlight-desk 7ab2131a，sunshine-desk bf375400）
 - [x] 被控端默认强制串流加密（sunshine-desk bf375400）
 
+## M1.5 界面对齐主流远控
+
+代码与 CI 已完成，实机外观与交互验收待做（见两端 `office/VALIDATION.md`）。
+
+- [x] 主控端远控式工作台：输入 IP/域名一键添加、配对、连接，设备卡片与简化设置页，原版设置收进「高级设置」（moonlight-desk bc39565a）
+- [x] 被控端原生主窗口：托盘左键打开，显示本机地址、设备名称、已授权设备与确认开关，日常使用无需网页（sunshine-desk 1e5a843a）
+
 ## M2 被控端可独立安装
 
 - [ ] 独立安装包身份、服务名与配置目录，可与官方 Sunshine 共存
