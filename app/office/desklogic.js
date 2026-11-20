@@ -261,3 +261,11 @@ function formatMbps(kbps) {
     var mbps = kbps / 1000
     return (Math.round(mbps * 10) / 10) + " Mbps"
 }
+
+// What closing the main window does. Qt 6 cancels quit() when a window
+// refuses to close, so a finished stream segue must no longer block it.
+function windowCloseAction(deskManagerMode, item, sessionCount) {
+    if (deskManagerMode) return sessionCount > 0 ? "hide" : "quit"
+    if (item && item.cancelDeskClose && !item.deskFinished) return "cancel"
+    return "close"
+}

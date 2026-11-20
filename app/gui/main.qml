@@ -10,6 +10,7 @@ import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
 import "../office" as Office
+import "../office/desklogic.js" as DeskLogic
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -61,13 +62,14 @@ ApplicationWindow {
         function onShowManager() { window.showNormal(); window.raise(); window.requestActivate() }
     }
     onClosing: function(close) {
-        if (!deskManagerMode && stackView.currentItem && stackView.currentItem.cancelDeskClose) {
+        var action = DeskLogic.windowCloseAction(deskManagerMode, stackView.currentItem, DeskSessions.count)
+        if (action === "cancel") {
             close.accepted = false
             stackView.currentItem.cancelDeskClose()
-        } else if (deskManagerMode && DeskSessions.count > 0) {
+        } else if (action === "hide") {
             close.accepted = false
             window.hide()
-        } else if (deskManagerMode) {
+        } else if (action === "quit") {
             // QGuiApplication::quit itself closes windows. Defer this to avoid
             // recursively requesting quit from inside its close event.
             Qt.callLater(Qt.quit)

@@ -100,3 +100,11 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 会话进程过渡页：连接中、等待确认、恢复中（“取消恢复”）、退出中的显示与取消；上游英文报错是否仍有残留。
 - 退出确认：有会话时提示断开，确认后各会话清理再退出；Esc 在工作台触发退出确认；会话窗口关闭时显示中文“断开远程桌面”确认框。
 - 配对取消：取消后地址栏可用；在被控端随后输入 PIN 不会自动进入桌面；再次点配对同一台电脑显示原 PIN 并可完成配对。
+
+## 实机发现：关闭桌面窗口后会话进程不退出（2026-11-20，分支 `fix/session-exit`）
+
+- 现象：Mac 主控端连上 Windows 被控端后点窗口 X 关闭，串流已断开（被控端记录客户端断开，主控端日志各流清理完成），但会话进程不退出；卡片仍显示“显示桌面”，点击只聚焦残留窗口，一直停在 “Starting input stream”，不再发起新连接。
+- 原因：会话结束时 `finishSegue` 调用 `Qt.quit()`，Qt 6 在有窗口拒绝关闭时会取消退出；`main.qml` 的 `onClosing` 只要当前页有 `cancelDeskClose` 就拒绝关闭，串流结束后依然如此，退出被吞掉。SIGTERM 退出路径同样受阻。
+- 修复：`StreamSegue.qml` 在结束时置 `deskFinished`；关闭决策抽成 `desklogic.js` 的 `windowCloseAction`，串流结束后允许关闭。`tst_desklogic.qml` 新增 `test_windowCloseAction`（含回归用例）。
+- 云端结果：提交 `5594b7f4`，Desk macOS run [44703132531](https://github.com/linrong123/moonlight-desk/actions/runs/44703132531) 通过（测试与 macOS arm64 打包成功）。
+- 实机验收：该构建安装到 Mac 主控端，连接 Windows 被控端后点 X 关闭，会话进程退出、卡片恢复“连接”，再次连接正常（2026-11-20 通过）。

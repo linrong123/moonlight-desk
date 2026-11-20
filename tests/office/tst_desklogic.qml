@@ -101,4 +101,16 @@ TestCase {
         verify(Logic.isWindowed(Logic.WM_WINDOWED))
         verify(!Logic.isWindowed(Logic.WM_FULLSCREEN_DESKTOP))
     }
+
+    function test_windowCloseAction() {
+        var streaming = { cancelDeskClose: function() {}, deskFinished: false }
+        var finished = { cancelDeskClose: function() {}, deskFinished: true }
+        compare(Logic.windowCloseAction(false, streaming, 0), "cancel")
+        // Regression: a finished segue blocked Qt.quit() and left the session process running.
+        compare(Logic.windowCloseAction(false, finished, 0), "close")
+        compare(Logic.windowCloseAction(false, {}, 0), "close")
+        compare(Logic.windowCloseAction(false, null, 0), "close")
+        compare(Logic.windowCloseAction(true, streaming, 2), "hide")
+        compare(Logic.windowCloseAction(true, null, 0), "quit")
+    }
 }
