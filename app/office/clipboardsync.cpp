@@ -77,6 +77,12 @@ bool ClipboardSync::pullFinished(const ClipboardReply& reply, Reply& outcome,
         return false;
     }
     if (!active() || reply.status != 200 || !reply.hasSequence) return false;
+    // The baseline read failed (timeout, busy host): this first sequence is
+    // the baseline, so text that was already on Windows stays put.
+    if (!m_HasRemoteSequence) {
+        rememberRemote(reply);
+        return false;
+    }
     // Something was copied on the Mac while the request was in flight: the
     // newer local content wins and is pushed on the next focus gain.
     if (changeCountNow != changeCountAtRequest) {

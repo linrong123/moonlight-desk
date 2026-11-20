@@ -41,7 +41,9 @@ public:
     void setSupported(bool supported) { m_Supported = supported; }
     void setEnabled(bool enabled) { m_Enabled = enabled; }
     // A new connection may be allowed again after a 403 on the previous one.
-    void resetConnection() { m_Denied = false; m_DeniedStatus = 0; }
+    void resetConnection() { m_Denied = false; m_DeniedStatus = 0; forgetRemote(); }
+    // Until a baseline (or push) records the host sequence, a pull only records it.
+    void forgetRemote() { m_HasRemoteSequence = false; }
     bool supported() const { return m_Supported; }
     bool enabled() const { return m_Enabled; }
     bool denied() const { return m_Denied; }

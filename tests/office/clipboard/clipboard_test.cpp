@@ -140,6 +140,17 @@ static void pull() {
     require(toggle.focusGained(1,true,text) == ClipboardSync::Push::Skip);
     require(!toggle.pullFinished(ok(3,"win"),outcome,1,1,false,{}));
     text="new"; require(toggle.focusGained(2,true,text) == ClipboardSync::Push::Send);
+    toggle.forgetRemote(); // switched on again: the next sequence is a baseline
+    require(!toggle.pullFinished(ok(4,"win2"),outcome,2,2,false,{}) && toggle.remoteSequence()==4);
+    require(toggle.pullFinished(ok(5,"win3"),outcome,2,2,false,{}));
+
+    // Baseline failed: the first pull only records the sequence.
+    auto noBase = activeSync();
+    require(noBase.baselineFinished(status(503)) == ClipboardSync::Reply::None && !noBase.hasRemoteSequence());
+    require(!noBase.pullFinished(ok(5,"already on Windows"),outcome,1,1,false,{}) && noBase.remoteSequence()==5);
+    require(noBase.pullFinished(ok(6,"copied later"),outcome,1,1,false,{}));
+    noBase.resetConnection(); require(!noBase.hasRemoteSequence()); // a new connection starts without a baseline
+    require(!noBase.pullFinished(ok(7,"other host"),outcome,1,1,false,{}));
     ClipboardSync unsupported; unsupported.setEnabled(true);
     require(!unsupported.pullFinished(ok(1,"x"),outcome,0,0,false,{}));
 }

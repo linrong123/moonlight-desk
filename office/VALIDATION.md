@@ -171,8 +171,8 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 ## 文本剪贴板同步（2026-11-20，分支 `feat/clipboard`）
 
 - 实现：串流窗口获得焦点推送 Mac 文本、失去焦点及主动断开前拉取 Windows 文本；“鼠标与键盘”菜单“同步剪贴板”按设备记忆、默认开启，旧版被控端置灰。设计见 [剪贴板同步](CLIPBOARD.md)；被控端接口在 Sunshine Desk `feat/clipboard`。
-- 自动测试：新增 `tests/office/clipboard`（换行规范化、推送去重/超限/重试规则、403 只报一次、拉取去重/本地优先/相同文本不写/开关、严格 XML 与 base64/UTF-8 解析），接入 `office/macos/test.sh`；`tests/office/toolbar/check.mm` 新增“同步剪贴板”菜单项存在、默认置灰与提示、勾选状态、点击发送 `Action::Clipboard`、拒绝提示、确认框期间不可切换。macOS 编译与测试只在云端执行。
-- macOS CI：run 44742537772 通过（提交 63ed373d；`PASS office clipboard (112 checks)`，工具栏 check.mm 含剪贴板开关检查）。首次 run 44742098516 因 check.mm 暂停输入断言未计入剪贴板勾选失败，已修正。
+- 自动测试：新增 `tests/office/clipboard`（换行规范化、推送去重/超限/重试规则、403 只报一次、拉取去重/本地优先/相同文本不写/开关、baseline 失败时首次拉取只登记序号、401 停止同步、密码管理器标记跳过、严格 XML 与 base64/UTF-8 解析），接入 `office/macos/test.sh`；`tests/office/toolbar/check.mm` 新增“同步剪贴板”菜单项存在、默认置灰与提示、勾选状态、点击发送 `Action::Clipboard`、拒绝提示、确认框期间不可切换。macOS 编译与测试只在云端执行。
+- macOS CI：run 44742537772 通过（提交 63ed373d；`PASS office clipboard (112 checks)`，工具栏 check.mm 含剪贴板开关检查）。首次 run 44742098516 因 check.mm 暂停输入断言未计入剪贴板勾选失败，已修正。之后密码管理器标记过滤（ede37670，run 44743571429）与 401 停止同步、裸 413 不重试（35adfe8d，run 44744801971，130 checks）均通过。
 
 ### 待实机验收
 
@@ -180,6 +180,8 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 超过 1 MiB 不同步且只记日志；图片/文件复制不影响对端已有文本。
 - 关闭“同步剪贴板”后两端互不影响；重新打开不搬运已有内容，之后的复制恢复同步；设置按设备记忆。
 - 被控端关闭剪贴板开关（403）后本次连接停止同步、菜单提示原因，重连后恢复。
+- 被控端禁用该设备（401）后本次连接停止同步，切换焦点不再发请求（日志只出现一次 401）。
+- 在 1Password/Bitwarden 等密码管理器复制密码后切到串流窗口，Windows 剪贴板不变，日志不含密码内容。
 - 在 Windows 复制后立即点“断开”，Mac 能粘贴到该文本，且断开后**不自动重连**；断开耗时增加不超过约 1.5 秒。
 - 旧版被控端（无 `OfficeClipboard`）菜单置灰并提示更新，不发请求。
 - 点工具栏按钮、打开统计浮窗不触发多余同步（日志中无多余的 pushing/pulled）。

@@ -186,10 +186,17 @@ void State::clipboardToggle(Toolbar* toolbar, bool enabled, bool focused) {
     if (enabled == clipboard.enabled()) return;
     saveClipboard(enabled);
     clipboard.setEnabled(enabled);
+    {
+        // Results of requests sent before the switch never apply after it.
+        std::lock_guard<std::mutex> lock(clipboardMutex);
+        ++clipboardGeneration;
+        clipboardResults.clear();
+    }
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: sync %s", enabled ? "on" : "off");
     if (enabled && clipboardStarted && clipboard.active()) {
         // Switching on never moves existing content; only later copies sync.
         clipboard.adoptLocal(localClipboardChangeCount());
+        clipboard.forgetRemote();
         queueClipboard(ClipboardRequest::Baseline, {}, 0, clipboardTimeoutMs);
     }
     clipboardFocused = focused;
