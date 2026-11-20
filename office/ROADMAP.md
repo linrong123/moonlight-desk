@@ -37,6 +37,7 @@ Moonlight Desk（主控端）与 [Sunshine Desk](https://github.com/linrong123/s
 
 - [ ] Windows 主控端（Windows 原生工具栏）
 - [ ] 文本剪贴板同步
+- [ ] 密码类剪贴板内容在 Windows 端不进入剪贴板历史与云剪贴板（主控端标记 concealed，被控端附加 `ExcludeClipboardContentFromMonitorProcessing`）
 - [ ] 文件传输
 
 ## M4 远期

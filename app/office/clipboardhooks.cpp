@@ -123,16 +123,13 @@ void State::applyClipboardResults(Toolbar* toolbar) {
 void State::clipboardPush() {
     if (!clipboard.wantsLocal(localClipboardChangeCount())) return;
     auto local = readLocalClipboard();
-    switch (clipboard.focusGained(local.changeCount, local.hasText, local.text, local.concealed)) {
+    switch (clipboard.focusGained(local.changeCount, local.hasText, local.text)) {
     case ClipboardSync::Push::Send:
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: pushing %zu bytes", local.text.size());
         queueClipboard(ClipboardRequest::Push, std::move(local.text), local.changeCount, clipboardTimeoutMs);
         break;
     case ClipboardSync::Push::TooLarge:
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: Mac text exceeds 1 MiB; not pushed");
-        break;
-    case ClipboardSync::Push::Concealed:
-        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: Mac content is concealed or transient; not pushed");
         break;
     case ClipboardSync::Push::Skip:
         break;

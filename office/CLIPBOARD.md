@@ -29,7 +29,6 @@
 - **本端写入不回推**：写 Mac 剪贴板后把新的 `changeCount` 登记为已同步；推送返回的 `sequence` 登记为已同步，所以自己推过去的内容不会被拉回来。
 - **本地优先**：拉取请求发出后 Mac 上又复制了新内容（`changeCount` 变化），丢弃这次拉取结果，只更新序号，新内容在下次获得焦点时推送。
 - **换行**：线上一律 LF；Mac 文本中的 CRLF/单独 CR 推送前转 LF，拉取结果同样规范化。
-- **密码类内容**：Mac 剪贴板带 `org.nspasteboard.ConcealedType` 或 `org.nspasteboard.TransientType` 时不读文本、不推送，这次 `changeCount` 登记为已处理（不反复判断），日志只记“已跳过”不记内容。
 - **大小**：UTF-8 不超过 1 MiB（规范化后计算）。Mac 侧超限不推送并记日志；被控端回 `tooLarge=1` 时不拉取并记日志。
 
 ## 失败处理
@@ -78,7 +77,7 @@
 ## 已知限制
 
 - 只同步纯文本；Mac 上复制图片/文件时不推送，Windows 上是图片时不拉取。
-- 只认 [nspasteboard.org](http://nspasteboard.org) 约定的 `org.nspasteboard.ConcealedType` / `org.nspasteboard.TransientType` 标记（1Password、Bitwarden 等密码管理器使用）：带标记的内容不读取、不推送，其 `changeCount` 记为已处理，日志不含文本。未打标记的应用复制的密码仍会同步，敏感场景请关闭开关。
+- 密码管理器复制的内容（带 `org.nspasteboard.ConcealedType` 等标记）与普通文本一样同步，便于在远端粘贴密码登录。写入 Windows 后，若用户开启了 Windows 剪贴板历史或跨设备同步，可能被其记录；不希望同步时关闭开关。后续可由主控端标记此类内容、被控端写入时附加 `ExcludeClipboardContentFromMonitorProcessing` 格式（见 [ROADMAP](ROADMAP.md)）。
 - 被控端无推送通道，Windows 上的新复制要等 Mac 切走焦点（或主动断开）才会拉取；串流窗口一直在前台时 Mac 剪贴板不会变化。
 - 重连（中断恢复、分辨率切换）时丢弃挂起的请求结果，正在进行的推送不会自动补发，下次获得焦点时会重新判断。
 - 多个主控端同时连接同一被控端时，各自独立同步，最后写入者生效。

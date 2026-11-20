@@ -44,12 +44,6 @@ static void push() {
     require(!sync.wantsLocal(7) && sync.focusGained(7,true,text) == ClipboardSync::Push::Skip); // same changeCount
     text.clear(); require(sync.focusGained(8,false,text) == ClipboardSync::Push::Skip); // image or empty pasteboard
     require(!sync.wantsLocal(8)); // a non-text copy is adopted, not retried
-    std::string secret="password";
-    require(sync.wantsLocal(20) && sync.focusGained(20,true,secret,true) == ClipboardSync::Push::Concealed);
-    require(secret=="password" && !sync.wantsLocal(20)); // concealed copy handled once, never sent
-    require(sync.focusGained(20,true,secret,false) == ClipboardSync::Push::Skip);
-    std::string transient; require(sync.focusGained(21,false,transient,true) == ClipboardSync::Push::Concealed);
-    std::string after="next"; require(sync.focusGained(22,true,after) == ClipboardSync::Push::Send && after=="next");
     std::string big(office::clipboardMaxBytes + 1, 'x');
     require(sync.focusGained(9,true,big) == ClipboardSync::Push::TooLarge);
     std::string limit(office::clipboardMaxBytes, 'x');
