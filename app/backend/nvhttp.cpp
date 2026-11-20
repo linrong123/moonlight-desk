@@ -506,6 +506,18 @@ NvHTTP::requestOfficeConnect(const QString& action)
     return QString::fromUtf8(reply->readAll());
 }
 
+QString
+NvHTTP::requestOfficeClipboard(const QByteArray& text, int timeoutMs)
+{
+    if (m_ServerCert.isNull() || m_BaseUrlHttps.scheme() != "https")
+        throw GfeHttpResponseException(401, "Device pairing is required");
+    // Same paired-certificate authentication as office/display-scale; the
+    // clipboard text travels only in the TLS body, never in the URL or logs.
+    std::unique_ptr<QNetworkReply> reply(openConnection(m_BaseUrlHttps,
+        "office/clipboard", QString(), timeoutMs, NVLL_ERROR, !text.isEmpty(), false, text));
+    return QString::fromUtf8(reply->readAll());
+}
+
 QNetworkReply*
 NvHTTP::openConnection(QUrl baseUrl,
                        QString command,
@@ -513,7 +525,8 @@ NvHTTP::openConnection(QUrl baseUrl,
                        int timeoutMs,
                        NvLogLevel logLevel,
                        bool post,
-                       bool appendIdentity)
+                       bool appendIdentity,
+                       const QByteArray& body)
 {
     // Port must be set
     Q_ASSERT(baseUrl.port(0) != 0);
@@ -548,7 +561,9 @@ NvHTTP::openConnection(QUrl baseUrl,
 #endif
 
     auto sslErrorsConnection = connect(m_Nam, &QNetworkAccessManager::sslErrors, this, &NvHTTP::handleSslErrors);
-    QNetworkReply* reply = post ? m_Nam->post(request, QByteArray()) : m_Nam->get(request);
+    if (post && !body.isEmpty())
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain; charset=utf-8");
+    QNetworkReply* reply = post ? m_Nam->post(request, body) : m_Nam->get(request);
 
     // Run the request with a timeout if requested
     QEventLoop loop;

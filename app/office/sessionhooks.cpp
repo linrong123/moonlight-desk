@@ -146,10 +146,15 @@ void Session::officeStartUi() {
     // Sunshine may change the active display during launch/resume. Read DPI
     // only after the stream has started, not from the previous desktop layout.
     m_Office->queueDisplayScale();
+    // office/CLIPBOARD.md: baseline read, then push if the window has focus.
+    m_Office->clipboardStart(m_OfficeToolbar.get(), m_Window && SDL_GetKeyboardFocus() == m_Window);
     officePollUi();
 }
 
 void Session::officeStopUi() {
+    // Only an active disconnect pulls the Windows clipboard one last time
+    // (bounded wait); a reconnect keeps syncing on the next connection.
+    if (m_Office) m_Office->clipboardStop(m_Office->userStopped && !m_Office->reconfigure);
     m_OfficeRestoreCapture = false;
     m_OfficeToolbar.reset();
     office::videoStatsChannel().clear();
@@ -168,6 +173,8 @@ void Session::officePollUi() {
         }
     }
     if (!m_Office) return;
+    // Focus edges drive clipboard sync: gained pushes, lost pulls.
+    m_Office->clipboardPoll(m_OfficeToolbar.get(), m_Window && SDL_GetKeyboardFocus() == m_Window);
     const bool mayCapture = !m_OfficeInputPaused && !m_Office->userStopped &&
         !m_Office->reconfigure && SDL_GetKeyboardFocus() == m_Window;
     if (mayCapture && m_OfficeRestoreCapture) {
@@ -261,6 +268,10 @@ void Session::officeAction(office::Action action, int first, int second) {
         break;
     case office::Action::Disconnect:
         officeCancelRecovery();
+        break;
+    case office::Action::Clipboard:
+        m_Office->clipboardToggle(m_OfficeToolbar.get(), first != 0,
+            m_Window && SDL_GetKeyboardFocus() == m_Window);
         break;
     }
 }

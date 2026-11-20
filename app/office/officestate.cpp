@@ -30,6 +30,7 @@ State::State(const QString& hostId)
         QCryptographicHash::hash(hostId.toUtf8(), QCryptographicHash::Sha256).toHex())) {
     cursorQueue.setMaxThreadCount(1);
     displayScaleQueue.setMaxThreadCount(1);
+    clipboardQueue.setMaxThreadCount(1);
 }
 
 State::~State() {
@@ -37,8 +38,10 @@ State::~State() {
     // including partial startup failures that never reach Session cleanup.
     cursorQueue.clear();
     displayScaleQueue.clear();
+    clipboardQueue.clear();
     cursorQueue.waitForDone();
     displayScaleQueue.waitForDone();
+    clipboardQueue.waitForDone();
 }
 
 void State::load(StreamingPreferences* prefs) {
@@ -53,6 +56,7 @@ void State::load(StreamingPreferences* prefs) {
     const int mode = settings.value("mouse", 0).toInt();
     mouseMode = static_cast<MouseMode>(mode >= 0 && mode <= 2 ? mode : 0);
     prefs->absoluteMouseMode = mouseMode != MouseMode::Relative;
+    clipboardEnabled = settings.value("clipboard", true).toBool();
     prefs->gameOptimizations = true;
 }
 
@@ -70,6 +74,13 @@ void State::saveMouse(MouseMode mode) {
     settings.setValue("mouse", static_cast<int>(mode));
 }
 
+void State::saveClipboard(bool enabled) {
+    clipboardEnabled = enabled;
+    QSettings settings;
+    settings.beginGroup(settingsGroup);
+    settings.setValue("clipboard", enabled);
+}
+
 void State::prepareConnection(NvHTTP& http) {
     // Never downgrade authentication during recovery. getServerInfo() has an
     // upstream HTTP fallback; use the already-paired HTTPS endpoint directly.
@@ -83,6 +94,7 @@ void State::prepareConnection(NvHTTP& http) {
     cursorStatus = cursorSupported ? 0 : -1;
     displayScaleSupported = NvHTTP::getXmlString(xml, "OfficeDisplayScale") == "1";
     connectConfirm = NvHTTP::getXmlString(xml, "OfficeConnectConfirm") == "1";
+    clipboardSupported = NvHTTP::getXmlString(xml, "OfficeClipboard") == "1";
     {
         std::lock_guard<std::mutex> lock(displayScaleMutex);
         ++displayScaleGeneration;

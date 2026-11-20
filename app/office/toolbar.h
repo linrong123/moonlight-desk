@@ -13,6 +13,9 @@ public:
     virtual void setDeviceName(const char* name) = 0;
     // Mirrors the session's input pause (menu check mark) without an Action.
     virtual void setInputPaused(bool paused) = 0;
+    // Mirrors the clipboard sync toggle without an Action. Unsupported hosts
+    // grey the item out; denied means the host refused this connection.
+    virtual void setClipboard(bool supported, bool enabled, bool denied) = 0;
     virtual void setStatus(const char* text) = 0;
     virtual void setDisplayScales(const std::vector<int>& supported, int current, bool pending) = 0;
     // Resident summary in the toolbar; details are the tooltip and panel text.

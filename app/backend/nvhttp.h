@@ -147,6 +147,10 @@ public:
     // Paired HTTPS only: office/connect-request?action=start|status|cancel.
     QString requestOfficeConnect(const QString& action);
 
+    // Paired HTTPS only: office/clipboard. An empty text reads (GET); a
+    // non-empty UTF-8 body writes (POST). Returns the raw XML response.
+    QString requestOfficeClipboard(const QByteArray& text = {}, int timeoutMs = 3000);
+
     void setServerCert(QSslCertificate serverCert);
     void setAddress(NvAddress address);
     void setHttpsPort(uint16_t port);
@@ -201,7 +205,8 @@ private:
                    int timeoutMs,
                    NvLogLevel logLevel,
                    bool post = false,
-                   bool appendIdentity = true);
+                   bool appendIdentity = true,
+                   const QByteArray& body = QByteArray());
 
     NvAddress m_Address;
     QNetworkAccessManager* m_Nam;

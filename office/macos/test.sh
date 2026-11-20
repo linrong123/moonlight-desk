@@ -42,3 +42,8 @@ cd "$ROOT/build/office-tests/connectconfirm"
 "$QT_BIN/qmake" "$ROOT/tests/office/connectconfirm/connectconfirm.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
 make -j4
 ./office-connectconfirm-test
+mkdir -p "$ROOT/build/office-tests/clipboard"
+cd "$ROOT/build/office-tests/clipboard"
+"$QT_BIN/qmake" "$ROOT/tests/office/clipboard/clipboard.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64
+make -j4
+./office-clipboard-test
