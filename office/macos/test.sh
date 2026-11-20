@@ -5,6 +5,8 @@ QT_BIN="${OFFICE_QT_BIN:-$ROOT/.work/Qt/6.11.2/macos/bin}"
 mkdir -p "$ROOT/build/office-tests/preferences"
 clang++ -std=c++17 -Wall -Wextra -Werror "$ROOT/office/tests/recovery_test.cpp" -o "$ROOT/build/office-tests/recovery"
 "$ROOT/build/office-tests/recovery"
+clang++ -std=c++17 -Wall -Wextra -Werror -I "$ROOT/app" -I "$ROOT/moonlight-common-c/moonlight-common-c/src" "$ROOT/office/tests/videostats_test.cpp" "$ROOT/app/office/videostats.cpp" -o "$ROOT/build/office-tests/videostats"
+"$ROOT/build/office-tests/videostats"
 QT_QPA_PLATFORM=offscreen "$QT_BIN/qmltestrunner" -input "$ROOT/tests/office"
 cd "$ROOT/build/office-tests/preferences"
 "$QT_BIN/qmake" "$ROOT/tests/office/preferences/preferences.pro" QMAKE_APPLE_DEVICE_ARCHS=arm64

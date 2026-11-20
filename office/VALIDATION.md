@@ -108,3 +108,62 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 修复：`StreamSegue.qml` 在结束时置 `deskFinished`；关闭决策抽成 `desklogic.js` 的 `windowCloseAction`，串流结束后允许关闭。`tst_desklogic.qml` 新增 `test_windowCloseAction`（含回归用例）。
 - 云端结果：提交 `5594b7f4`，Desk macOS run [44703132531](https://github.com/linrong123/moonlight-desk/actions/runs/44703132531) 通过（测试与 macOS arm64 打包成功）。
 - 实机验收：该构建安装到 Mac 主控端，连接 Windows 被控端后点 X 关闭，会话进程退出、卡片恢复“连接”，再次连接正常（2026-11-20 通过）。
+
+## 工具栏修正：下拉勾选、全屏文字、全屏自动隐藏、统计移出画面（2026-11-20，分支 `feat/desk-toolbar`）
+
+- 下拉菜单只勾选当前项：`validateMenuItem` 不再改写 NSPopUpButton 自己菜单项的状态，只设置溢出子菜单项。
+- “全屏”按钮与溢出菜单项按窗口实际状态显示“全屏”/“退出全屏”（含非 Spaces 独占全屏）；绿色按钮切换后 SDL 标志过期时，工具栏按钮改用原生 `toggleFullScreen:`。
+- Spaces 全屏时工具栏与菜单栏自动隐藏：运行时包装 SDL2 窗口委托（不改 SDL 源码），只作用于办公会话窗口，详见 [显示设置](DISPLAY_SETTINGS.md#全屏实现说明)。
+- 实机发现全屏未自动隐藏：委托实际类为 `SDL3Cocoa_WindowListener`（sdl2-compat 转发 SDL3 3.4.18），原补丁写死 `Cocoa_WindowListener` 而静默跳过。改为包装 `object_getClass(window.delegate)`，每类一次并写会话日志；删除无效的“创建时已全屏则补设 presentationOptions”分支（实测进入全屏后设置不生效）。修正组合在 macOS 上用探针实测：工具栏随菜单栏隐藏、内容区占满屏幕；“鼠标到顶部显示工具栏”未在探针中验证。`check.mm` 新增假委托类断言（包装落在实际类、只包装已实现方法、每类一次、未登记窗口不变、无方法时记录未安装）。
+- 统计移出视频：工具栏常驻中文摘要 + 悬停详情；“统计”按钮切换不抢焦点的 HUD 浮窗；`ffmpeg.cpp` 仅办公会话发布样本，上游 Ctrl+Alt+Shift+S 叠加不变。
+- 自动测试：`tests/office/toolbar/check.mm` 新增勾选、全屏文字、presentationOptions 组合、摘要/浮窗（不能成为 key/main、FullScreenAuxiliary、开关事件、关闭事件）断言；新增 `office/tests/videostats_test.cpp`（中文摘要/详情、编码名称、跨线程最新样本通道），均接入 `office/macos/test.sh`。`videostats_test` 已在 Windows MSVC（`/std:c++17 /W4 /WX`）本地通过。
+
+### 待实机验收
+
+- 下拉菜单（鼠标、分辨率、缩放）及窄窗口溢出菜单只勾选当前项。
+- 绿色按钮、工具栏按钮、溢出菜单进入/退出全屏，按钮文字与实际状态一致；交替使用不卡在错误状态。
+- Spaces 全屏下工具栏与菜单栏默认隐藏，鼠标移到屏幕顶部出现、移开收起，Dock 不常驻；退出全屏恢复普通外观；全屏中重连后行为相同；原版 Moonlight 会话不受影响。
+- 统计摘要数值（延迟、帧率、码率）与上游叠加统计对照；浮窗每秒刷新、可拖动、可关闭，按钮状态同步；全屏空间中可见。
+- 浮窗打开时键盘鼠标仍转发到远端，点击浮窗后回到视频可恢复捕获；断开时浮窗随窗口消失。
+
+## 工具栏重排为“控制中心”（2026-11-20，分支 `feat/desk-toolbar`）
+
+- 全屏自动隐藏修复：提交 `82c84d51`，Desk macOS run [44732124895](https://github.com/linrong123/moonlight-desk/actions/runs/44732124895) 通过。
+- 工具栏布局改为左侧设备名 + 统计摘要，右侧只保留“控制中心 ▾”和红色“断开”；分辨率、画面缩放、鼠标模式、暂停输入、连接信息、设备列表、全屏和断开连接都收进控制中心菜单，结构见 [显示设置](DISPLAY_SETTINGS.md#操作)。`office::Action` 不变；`Toolbar` 接口新增 `setDeviceName`（会话启动时传入主机名）和 `setInputPaused`（同一会话重连后同步暂停勾选，不产生事件）。
+- 勾选在 `validateMenuItem:` 中按会话状态重算，分辨率、缩放、鼠标三组各自单选；“画面缩放”子菜单在弹出前（`menuNeedsUpdate:`）按最新档位重建。
+- 用户已手动暂停输入时选择分辨率，确认窗口不再额外暂停/恢复输入。
+- 自动测试：`tests/office/toolbar/check.mm` 改为断言工具栏项顺序、设备名、红色断开、控制中心菜单顺序与文字（含鼠标模式第二行灰色说明、全屏项 ⌃⌥⇧X 提示且无 keyEquivalent、红色“断开连接”）、溢出菜单结构相同、各组单项勾选、暂停输入事件与状态、`setInputPaused` 不发事件、暂停状态下切换分辨率只发 Resolution、确认期间菜单项不可用、连接信息面板标题与勾选、无设备列表时不显示“设备列表…”。macOS 编译与测试只在云端执行（本机为 Windows，无法编译 Objective-C++）。
+
+- macOS run [44733610657](https://github.com/linrong123/moonlight-desk/actions/runs/44733610657) 通过（提交 `c766ab30`）。
+
+### 实机验收结果
+
+- Spaces 全屏时工具栏和菜单栏自动隐藏：真实主机已验收（macOS 27.2.1，c766ab30）。
+- Spaces 全屏时鼠标移到屏幕顶端，工具栏和菜单栏滑出：真实主机已验收（macOS 27.2.1，c766ab30）。
+- 实机反馈（macOS 27 浅色模式）：左侧设备名与摘要被套进白色圆角背板、左边看起来被裁切、两段文字连在一起；“断开”离“控制中心”太近。已在下一节第三版改版处理。
+
+### 待实机验收
+
+控制中心菜单已在第三版改为居中图标，涉及布局、菜单与全屏切换的项改在下一节验收；以下项仍按本节待验收。
+
+- 移开鼠标后工具栏收起，Dock 不常驻；退出全屏恢复普通外观；全屏中重连后行为相同。
+- 暂停输入后远端不再收到键盘鼠标，再点恢复；重连后勾选状态保持。
+- 连接信息浮窗：标题、每秒刷新、拖动与关闭、菜单勾选同步，全屏空间中可见。
+- “断开”按钮与“断开连接”菜单项主动断开后不自动重连，卡片恢复“连接”。
+
+## 工具栏第三版：连接信息胶囊 + 居中图标（2026-11-20，分支 `feat/desk-toolbar`）
+
+- 起因：c766ab30 实机反馈（见上节）。根因（推断，依据 Apple 文档与截图）：macOS 26 起相邻、同类型控件的工具栏项会被自动编组到同一块 Liquid Glass 背板；设备名与摘要两个 `NSTextField` 项被编到一起，标签无内边距、相互间无间距，于是文字贴着圆角边缘且连在一起。依据：WWDC25 “Build an AppKit app with the new design”（工具栏项按控制视图类型自动分组、组渲染在同一块玻璃上；非交互项用 `isBordered = NO` 去掉玻璃），Apple 开发者论坛 thread 799891（间隔项不参与玻璃）。
+- 改法：左侧改为单个带边框 `NSButton` 胶囊（状态圆点、加粗设备名、间隔、灰色摘要、`info.circle` 图标），固定宽度约束，点击打开/关闭连接信息浮窗，悬停显示详情；中间图标组（显示、鼠标与键盘为 `NSMenuToolbarItem`，全屏直接切换且图标/提示随状态变化，设备列表仅独立会话进程有），macOS 13 起 `centeredItemIdentifiers` 居中；删除“控制中心”按钮；红色“断开”在弹性空白之后的最右侧，不弹确认。溢出菜单按同样分类显示文字。`office::Action` 与 `Toolbar` 接口不变。
+- 自动测试：`tests/office/toolbar/check.mm` 改为断言工具栏项顺序与居中集合、胶囊标题（圆点/加粗设备名/灰色摘要）、宽度约束（长设备名只截设备名、不随摘要变化）、点击胶囊切换浮窗、图标菜单与溢出项（由 `NSMenuToolbarItem` 生成，同名同内容）、全屏图标与提示随状态切换、无设备管理器时不出现设备列表图标。macOS 编译与测试只在云端执行。
+
+- macOS run [44737571099](https://github.com/linrong123/moonlight-desk/actions/runs/44737571099) 通过（提交 `4a5bb764`；`4af9a763` 的 run 44737172672 因 AppKit 替换自建溢出项断言失败，`4a5bb764` 改为使用 `NSMenuToolbarItem` 自动生成的溢出项后修复）。
+
+### 实机验收结果（macOS 27.2.1，4a5bb764，2026-11-20）
+
+用户实机确认第三版可用：胶囊外观（不再裁切、ⓘ 在右侧）、点胶囊开关连接信息浮窗、中间图标组居中及菜单（两行说明、单项勾选）、全屏图标切换、“断开”与图标组的距离、窄窗口溢出菜单。`NSBezelStyleTexturedRounded` 胶囊观感在 macOS 27 上可接受。
+
+### 待实机验收
+
+- 深色模式下胶囊外观（本次只在浅色模式确认）。
+- 上节“待实机验收”中的暂停输入转发、主动断开后不自动重连、全屏中重连等项仍待专项验证。

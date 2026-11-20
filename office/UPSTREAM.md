@@ -8,9 +8,11 @@
 | --- | --- |
 | `app/office/recoverypolicy.h` | 有界重连策略，使用单调时钟；主动退出不可恢复 |
 | `app/office/officestate.*` | 每主机偏好、已认证 serverinfo、幂等光标请求及有界队列；不能 HTTP 降级 |
-| `app/office/sessionhooks.cpp` | Session 小适配点，鼠标与分辨率应用、恢复实例创建 |
+| `app/office/sessionhooks.cpp` | Session 小适配点，鼠标与分辨率应用、恢复实例创建；工具栏启动时传入主机名（`NvComputer::name`）并同步输入暂停状态 |
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
-| `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI |
+| `app/office/toolbar*` | Mac 原生工具栏（左侧连接信息胶囊 NSButton、居中图标组：显示/鼠标与键盘为 `NSMenuToolbarItem`，全屏/设备列表为图标按钮，macOS 13 起 `centeredItemIdentifiers`；右侧红色断开；`Toolbar` 接口含 `setDeviceName`/`setInputPaused`，`office::Action` 不变）；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI。全屏自动隐藏在运行时包装 SDL 窗口 delegate 的实际类（`object_getClass(window.delegate)`，当前为 sdl2-compat/SDL3 的 `SDL3Cocoa_WindowListener`，会话日志 `Office toolbar: fullscreen auto-hide ...` 记录类名与已包装方法）的 `window:willUseFullScreenPresentationOptions:`、`windowDidEnterFullScreen:`、`windowDidBecomeKey:`（只作用于已登记的办公窗口，先调原实现）；升级 SDL 时须复核这三个方法仍存在且行为未变（SDL3 `src/video/cocoa/SDL_cocoawindow.m`），并看会话日志确认不是 “not installed” |
+| `app/office/videostats.*` | 解码统计样本、中文摘要/详情、解码线程→主线程最新样本通道（互斥 + 原子标志）；`copyVideoStats` 按 `VIDEO_STATS` 字段名复制，上游增删字段时同步 |
+| `app/streaming/video/ffmpeg.cpp` | 办公统计适配点：仅 `Session::get()->officeEnabled()` 时在统计窗口滚动处发布样本（双窗口合计、解码尺寸、编码、`m_BwTracker` 平均/峰值码率）；上游叠加统计分支不变 |
 | `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |
 | `app/office/devicename.*` / `backend/nvpairingmanager.cpp` | 配对 `devicename` 取本机电脑名称（mac 用 SystemConfiguration），清洗、截断到 64 字节 UTF-8 并 URL 编码；上游只把五处 `devicename=roth` 换成同一个参数 |
 | `app/office/connectconfirm.*` / `backend/nvhttp.*` | 每次连接确认：`office/connect-request` 严格 XML 解析（唯一 `state`、合法枚举）、start→status 1 秒轮询、65 秒客户端期限、取消/超时/传输异常撤回；走配对 HTTPS GET，无 HTTP 降级 |
@@ -46,7 +48,7 @@
 4. 运行 `office/macos/test.sh`，完整构建，两端安装/锁屏恢复/分辨率/鼠标实测。
 5. 更新基线、测试记录和限制。新增 workflow 要审查权限及发布目标，不能继承上游发布凭据或向上游提交。
 6. 核查 `Session::s_ActiveSession`、底层 `Connection.c` 全局状态及 CLI 接口。多连接依靠进程隔离，不删除上游单连接信号量。验证每窗口焦点/释放按键、关闭一连接不影响另一连接、管理进程退出等待清理，以及会话进程不回写旧设备列表。
-7. 原生窗口工具栏不能修改视频contentView或覆盖其内容；确认sheet异步显示，销毁后不能回调Session。SDL确认期间暂停键鼠转发，保留窗口/网络事件处理。DPI队列在LiStopConnection之前清理，避免显示器恢复过程中发送旧请求。
+7. 原生窗口工具栏不能修改视频contentView或覆盖其内容；确认sheet异步显示，销毁后不能回调Session。SDL确认期间暂停键鼠转发，保留窗口/网络事件处理。DPI队列在LiStopConnection之前清理，避免显示器恢复过程中发送旧请求。统计浮窗不能成为key/main窗口（`officePollUi` 依赖 `SDL_GetKeyboardFocus() == m_Window` 决定是否恢复捕获），随工具栏销毁。
 
 ## 协议扩展
 
