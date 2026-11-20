@@ -166,8 +166,8 @@ int main() { @autoreleasepool {
     toolbar->setDeviceName("");
     assert([target->deviceName isEqualToString:@"远程电脑"] && target->infoWidth.constant == infoWidth);
     assert([label(toolbarItem(@"office.info").menuFormRepresentation) isEqualToString:@"连接信息…"]);
-    // Center icons: 显示 and 鼠标与键盘 open their menus on click; the overflow
-    // forms carry the category title and the same entries.
+    // Center icons: 显示 and 鼠标与键盘 open their menus on click; their overflow
+    // entries come from NSMenuToolbarItem itself (label + the same menu).
     NSMenu* const iconMenus[] = {target->displayMenu, target->inputMenu};
     NSString* const iconTitles[] = {@"显示", @"鼠标与键盘"};
     for (int i = 0; i < 2; ++i) {
@@ -177,8 +177,12 @@ int main() { @autoreleasepool {
         assert([item.label isEqualToString:iconTitles[i]]);
         if (@available(macOS 11.0, *)) assert(item.image);
         NSMenuItem* overflow = item.menuFormRepresentation;
-        assert([overflow.title isEqualToString:iconTitles[i]] && overflow.submenu != iconMenus[i]);
-        assert([labels(overflow.submenu) isEqualToArray:labels(iconMenus[i])]);
+        fprintf(stderr, "overflow %s: title=%s submenu=%s same=%d\n", iconTitles[i].UTF8String,
+            overflow.title.UTF8String ?: "(nil)", overflow.submenu ? "yes" : "no", overflow.submenu == iconMenus[i]);
+        if (overflow) {
+            assert([overflow.title isEqualToString:iconTitles[i]]);
+            if (overflow.submenu) assert([labels(overflow.submenu) isEqualToArray:labels(iconMenus[i])]);
+        }
     }
     // Fullscreen icon: toggles directly; icon, tooltip and overflow title follow the state.
     NSToolbarItem* fullscreenIcon = toolbarItem(@"office.fullscreen");

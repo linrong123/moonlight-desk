@@ -595,8 +595,9 @@ static const CGFloat officeDeviceNameWidth = 200;
         item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
         item.view = status;
     } else if (display || [identifier isEqualToString:officeInputId]) {
-        // A click opens the menu (no primary action); the overflow menu has the
-        // same entries under the same title.
+        // A click opens the menu (no primary action). NSMenuToolbarItem builds
+        // its own overflow entry (label + this menu) and ignores a custom
+        // menuFormRepresentation, so none is set here.
         title = display ? @"显示" : @"鼠标与键盘";
         NSMenuToolbarItem* menuItem = [[[NSMenuToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
         menuItem.menu = display ? displayMenu : inputMenu;
@@ -604,7 +605,6 @@ static const CGFloat officeDeviceNameWidth = 200;
         item = menuItem;
         [self decorateIconItem:item symbols:display ? @[@"display"] : @[@"computermouse", @"keyboard"] title:title];
         item.toolTip = display ? @"显示：分辨率、画面缩放" : @"鼠标与键盘：鼠标模式、暂停输入";
-        overflow = [self submenuTitled:title items:display ? [self buildDisplayMenu] : [self buildInputMenu]];
     } else if ([identifier isEqualToString:officeFullscreenId]) {
         title = @"全屏";
         item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
@@ -633,6 +633,7 @@ static const CGFloat officeDeviceNameWidth = 200;
     }
     item.label = title;
     item.paletteLabel = title;
+    if ([item isKindOfClass:NSMenuToolbarItem.class]) return item;
     if (!overflow) overflow = [self itemTitled:title action:nil tag:0];
     item.menuFormRepresentation = overflow;
     if (item == fullscreenItem) [self decorateFullscreenItem];
