@@ -103,35 +103,123 @@ int main() { @autoreleasepool {
     assert(subtitleWrites == writes);
     toolbar->setStatus("状态已变");
     assert(subtitleWrites == writes + 1);
-    assert(!target->scale.enabled);
-    toolbar->setDisplayScales({100,125,150,200},150,false);
-    assert(target->scale.enabled && [target->scale.selectedItem.representedObject intValue] == 150);
-    NSToolbarItem* scaleItem = window.toolbar.items[2];
-    toolbar->setDisplayScales({100,125,150,200},150,false);
-    assert(window.toolbar.items[2] == scaleItem);
-    [target->scale selectItemAtIndex:3]; [target scaleChanged:target->scale];
-    assert(events.back() == std::make_tuple(office::Action::DisplayScale,200,0));
-    toolbar->setDisplayScales({},0,false); assert(!target->scale.enabled);
     auto toolbarItem = [&](NSString* identifier) -> NSToolbarItem* {
         for (NSToolbarItem* item in window.toolbar.items) if ([item.itemIdentifier isEqualToString:identifier]) return item;
         return nil;
     };
-    // Pop-up menus keep their own single check mark; only overflow choices are
-    // marked by validation (tag = index).
-    assert(target->mouse.indexOfSelectedItem == 0);
-    for (NSMenuItem* item in target->mouse.menu.itemArray) assert([target validateMenuItem:item]);
-    assert([target->mouse itemAtIndex:0].state == NSControlStateValueOn);
-    assert([target->mouse itemAtIndex:1].state == NSControlStateValueOff && [target->mouse itemAtIndex:2].state == NSControlStateValueOff);
-    NSMenu* mouseOverflow = toolbarItem(@"office.mouse").menuFormRepresentation.submenu;
-    [target->mouse selectItemAtIndex:2];
-    for (NSMenuItem* item in mouseOverflow.itemArray) [target validateMenuItem:item];
-    assert(mouseOverflow.itemArray[2].state == NSControlStateValueOn && mouseOverflow.itemArray[0].state == NSControlStateValueOff);
-    assert([target->mouse itemAtIndex:0].state == NSControlStateValueOff && [target->mouse itemAtIndex:2].state == NSControlStateValueOn);
-    [target->mouse selectItemAtIndex:0];
-    // The fullscreen label follows the real window state.
-    NSMenuItem* fullscreenOverflow = toolbarItem(@"office.fullscreen").menuFormRepresentation;
-    [target validateMenuItem:fullscreenOverflow];
-    assert([target->fullscreenButton.title isEqualToString:@"全屏"] && [fullscreenOverflow.title isEqualToString:@"全屏"]);
+    // First line of a (possibly two-line, attributed) menu title.
+    auto label = [](NSMenuItem* item) -> NSString* {
+        if (item.separatorItem) return @"-";
+        NSString* text = item.attributedTitle.length ? item.attributedTitle.string : item.title;
+        return [text componentsSeparatedByString:@"\n"].firstObject;
+    };
+    auto labels = [&](NSMenu* menu) -> NSArray* {
+        NSMutableArray* result = [NSMutableArray array];
+        for (NSMenuItem* item in menu.itemArray) [result addObject:label(item)];
+        return result;
+    };
+    // Indices checked after validation, as AppKit does before showing a menu.
+    auto checked = [&](NSMenu* menu) -> std::vector<NSInteger> {
+        std::vector<NSInteger> result;
+        for (NSInteger i = 0; i < menu.numberOfItems; ++i) {
+            NSMenuItem* item = [menu itemAtIndex:i];
+            if (item.separatorItem || !item.action) continue;
+            [target validateMenuItem:item];
+            if (item.state == NSControlStateValueOn) result.push_back(i);
+        }
+        return result;
+    };
+    auto redText = [](NSAttributedString* text) -> bool {
+        NSColor* color = [text attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:nullptr];
+        return [color isEqual:NSColor.systemRedColor];
+    };
+    // Toolbar: device name and summary on the left; control center and disconnect on the right.
+    NSMutableArray* expectedIds = [NSMutableArray arrayWithArray:@[@"office.device", @"office.summary"]];
+    if (@available(macOS 11.0, *)) {} else { [expectedIds addObject:@"office.status"]; }
+    [expectedIds addObjectsFromArray:@[NSToolbarFlexibleSpaceItemIdentifier, @"office.control", @"office.disconnect"]];
+    assert([[window.toolbar.items valueForKey:@"itemIdentifier"] isEqualToArray:expectedIds]);
+    assert(toolbarItem(@"office.device").view == target->device && [target->device.stringValue isEqualToString:@"远程电脑"]);
+    toolbar->setDeviceName("办公电脑");
+    assert([target->device.stringValue isEqualToString:@"办公电脑"]);
+    toolbar->setDeviceName("");
+    assert([target->device.stringValue isEqualToString:@"远程电脑"]);
+    assert(toolbarItem(@"office.control").view == target->controlButton);
+    assert([target->controlButton.title isEqualToString:@"控制中心 ▾"]);
+    assert(toolbarItem(@"office.disconnect").view == target->disconnectButton && redText(target->disconnectButton.attributedTitle));
+    assert(redText(toolbarItem(@"office.disconnect").menuFormRepresentation.attributedTitle));
+    // Control center menu: order and texts; the overflow form has the same structure.
+    NSMenu* menu = target->controlMenu;
+    NSArray* top = labels(menu);
+    assert(top.count == 7);
+    assert([[top subarrayWithRange:NSMakeRange(0, 5)] isEqualToArray:(@[@"显示", @"鼠标与键盘", @"连接信息…", @"设备列表…", @"-"])]);
+    assert([top[5] hasPrefix:@"进入全屏"] && [top[6] isEqualToString:@"断开连接"]);
+    assert([labels(toolbarItem(@"office.control").menuFormRepresentation.submenu) isEqualToArray:top]);
+    NSMenuItem* fullscreenItem = [menu itemAtIndex:5];
+    [target validateMenuItem:fullscreenItem];
+    assert([label(fullscreenItem) hasPrefix:@"进入全屏"] && [fullscreenItem.attributedTitle.string containsString:@"⌃⌥⇧X"]);
+    assert(fullscreenItem.keyEquivalent.length == 0); // the SDL shortcut already toggles it
+    assert(redText([menu itemAtIndex:6].attributedTitle));
+    // 显示 › 分辨率: only the current resolution is checked.
+    NSMenu* display = [menu itemAtIndex:0].submenu;
+    assert([labels(display) isEqualToArray:(@[@"分辨率", @"画面缩放"])]);
+    NSMenu* resolutionMenu = [display itemAtIndex:0].submenu;
+    assert(resolutionMenu.numberOfItems == 6 && [label([resolutionMenu itemAtIndex:3]) isEqualToString:@"2560 × 1440"]);
+    assert(checked(resolutionMenu) == std::vector<NSInteger>{1});
+    // 显示 › 画面缩放: filled from the host's choices when opened, one check mark.
+    NSMenu* scaleMenu = [display itemAtIndex:1].submenu;
+    assert(scaleMenu.delegate == target);
+    [target menuNeedsUpdate:scaleMenu];
+    assert([labels(scaleMenu) isEqualToArray:@[@"读取中…"]] && ![scaleMenu itemAtIndex:0].enabled);
+    toolbar->setDisplayScales({100,125,150,200},150,false);
+    NSToolbarItem* controlItem = toolbarItem(@"office.control");
+    toolbar->setDisplayScales({100,125,150,200},150,false);
+    assert(toolbarItem(@"office.control") == controlItem);
+    [target menuNeedsUpdate:scaleMenu];
+    assert([labels(scaleMenu) isEqualToArray:(@[@"100%", @"125%", @"150%", @"200%"])]);
+    assert(checked(scaleMenu) == std::vector<NSInteger>{2});
+    for (NSMenuItem* item in scaleMenu.itemArray) assert([target validateMenuItem:item]);
+    [target scaleChanged:[scaleMenu itemAtIndex:3]];
+    assert(events.back() == std::make_tuple(office::Action::DisplayScale,200,0));
+    toolbar->setDisplayScales({100,125,150,200},200,true);
+    [target menuNeedsUpdate:scaleMenu];
+    assert(checked(scaleMenu) == std::vector<NSInteger>{3} && ![target validateMenuItem:[scaleMenu itemAtIndex:0]]);
+    const size_t beforePending = events.size();
+    [target scaleChanged:[scaleMenu itemAtIndex:0]];
+    assert(events.size() == beforePending);
+    toolbar->setDisplayScales({},0,false);
+    [target menuNeedsUpdate:scaleMenu];
+    assert([labels(scaleMenu) isEqualToArray:@[@"不可用"]]);
+    // 鼠标与键盘: three single-choice modes with a grey description, then 暂停输入.
+    NSMenu* input = [menu itemAtIndex:1].submenu;
+    assert([labels(input) isEqualToArray:(@[@"本机鼠标（推荐办公）", @"远端鼠标", @"游戏模式（锁定鼠标）", @"-", @"暂停输入"])]);
+    assert([[input itemAtIndex:0].attributedTitle.string hasSuffix:@"\n显示本机光标，响应最快，适合日常办公"]);
+    assert([[input itemAtIndex:1].attributedTitle.string hasSuffix:@"\n显示被控端的光标样式"]);
+    assert([[input itemAtIndex:2].attributedTitle.string hasSuffix:@"\n鼠标锁定在画面内，适合游戏或 3D 软件；按 ⌃⌥⇧Z 释放"]);
+    NSAttributedString* firstMode = [input itemAtIndex:0].attributedTitle;
+    NSColor* noteColor = [firstMode attribute:NSForegroundColorAttributeName atIndex:firstMode.length - 1 effectiveRange:nullptr];
+    assert([noteColor isEqual:NSColor.secondaryLabelColor]);
+    assert(checked(input) == std::vector<NSInteger>{0});
+    [target mouseChanged:[input itemAtIndex:2]];
+    assert(events.back() == std::make_tuple(office::Action::Mouse,2,0));
+    assert(checked(input) == std::vector<NSInteger>{2});
+    [target mouseChanged:[input itemAtIndex:0]];
+    assert(events.back() == std::make_tuple(office::Action::Mouse,0,0) && checked(input) == std::vector<NSInteger>{0});
+    // 暂停输入 toggles and is checked while paused.
+    [target inputPause:[input itemAtIndex:4]];
+    assert(events.back() == std::make_tuple(office::Action::InputPause,1,0));
+    assert(checked(input) == (std::vector<NSInteger>{0, 4}));
+    [target inputPause:[input itemAtIndex:4]];
+    assert(events.back() == std::make_tuple(office::Action::InputPause,0,0) && checked(input) == std::vector<NSInteger>{0});
+    const size_t beforeSync = events.size();
+    toolbar->setInputPaused(true); // restored after reconnect: no event
+    assert(events.size() == beforeSync && checked(input) == (std::vector<NSInteger>{0, 4}));
+    // Already paused by the user: the resolution sheet neither pauses nor resumes.
+    [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
+    assert(events.size() == beforeSync && pendingCompletion);
+    assert(![target validateMenuItem:[resolutionMenu itemAtIndex:0]] && ![target validateMenuItem:[input itemAtIndex:4]]);
+    complete(NSAlertFirstButtonReturn);
+    assert(events.size() == beforeSync + 1 && events.back() == std::make_tuple(office::Action::Resolution,2560,1440));
+    toolbar->setInputPaused(false);
     // Spaces fullscreen: SDL's hidden menu bar becomes auto-hide with the toolbar;
     // only valid AppKit combinations are produced.
     assert(officeFullscreenOptions(sdlDesktop) == autoHide);
@@ -148,39 +236,48 @@ int main() { @autoreleasepool {
     toolbar->setStatistics("延迟 12 ms · 60 帧/秒 · 18.5 Mbps", "视频：1920×1080\n码率：18.5 Mbps");
     assert([target->summary.stringValue isEqualToString:@"延迟 12 ms · 60 帧/秒 · 18.5 Mbps"]);
     assert([target->summary.toolTip isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
-    // The statistics button toggles a non-activating panel that never takes the
-    // stream window's keyboard focus and joins the fullscreen Space.
+    // 连接信息… toggles a non-activating panel that never takes the stream
+    // window's keyboard focus and joins the fullscreen Space.
+    NSMenuItem* statisticsItem = [menu itemAtIndex:2];
     const size_t beforeStats = events.size();
-    [target statistics:nil];
+    [target statistics:statisticsItem];
     assert(events.size() == beforeStats + 1 && events.back() == std::make_tuple(office::Action::Statistics,1,0));
-    assert(target->statisticsButton.state == NSControlStateValueOn && target->panel);
+    assert(target->panel && [target->panel.title isEqualToString:@"连接信息"]);
+    [target validateMenuItem:statisticsItem];
+    assert(statisticsItem.state == NSControlStateValueOn);
     assert(![target->panel canBecomeKeyWindow] && ![target->panel canBecomeMainWindow]);
     assert(target->panel.collectionBehavior & NSWindowCollectionBehaviorFullScreenAuxiliary);
     assert(!target->panel.visible); // the stream window is hidden in this check
     assert([target->panelText.stringValue isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
-    NSMenuItem* statisticsOverflow = toolbarItem(@"office.statistics").menuFormRepresentation;
+    NSMenuItem* statisticsOverflow = toolbarItem(@"office.summary").menuFormRepresentation;
     [target validateMenuItem:statisticsOverflow];
     assert(statisticsOverflow.state == NSControlStateValueOn);
-    [target statistics:nil];
+    [target statistics:statisticsItem];
     assert(events.back() == std::make_tuple(office::Action::Statistics,0,0));
-    assert(target->statisticsButton.state == NSControlStateValueOff);
+    [target validateMenuItem:statisticsItem];
+    assert(statisticsItem.state == NSControlStateValueOff);
     toolbar->setStatisticsVisible(true); // restored after reconnect: no event
-    assert(events.size() == beforeStats + 2 && target->statisticsButton.state == NSControlStateValueOn);
+    [target validateMenuItem:statisticsItem];
+    assert(events.size() == beforeStats + 2 && statisticsItem.state == NSControlStateValueOn);
     [target windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification object:target->panel]];
-    assert(events.back() == std::make_tuple(office::Action::Statistics,0,0) && target->statisticsButton.state == NSControlStateValueOff);
+    [target validateMenuItem:statisticsItem];
+    assert(events.back() == std::make_tuple(office::Action::Statistics,0,0) && statisticsItem.state == NSControlStateValueOff);
     toolbar->setStatistics("", "");
     assert([target->summary.stringValue isEqualToString:@"统计读取中"]);
     assert(window.childWindows.count == 0 && originalContent.subviews.count == 0);
+    // Not paused: the resolution sheet pauses input and resumes it on close.
     const size_t before = events.size();
-    [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
-    assert(events.size()==before+1 && std::get<0>(events.back())==office::Action::InputPause && std::get<1>(events.back())==1);
-    assert(target->resolution.indexOfSelectedItem==target->currentResolution);
+    [target resolutionChanged:[resolutionMenu itemAtIndex:1]]; // current: no sheet
+    assert(events.size() == before && !pendingCompletion);
+    [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
+    assert(events.size()==before+1 && events.back()==std::make_tuple(office::Action::InputPause,1,0));
+    assert(checked(resolutionMenu) == std::vector<NSInteger>{1}); // a proposal is never shown as current
     complete(NSAlertSecondButtonReturn);
-    assert(events.size()==before+2 && std::get<0>(events.back())==office::Action::InputPause && std::get<1>(events.back())==0);
-    [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
+    assert(events.size()==before+2 && events.back()==std::make_tuple(office::Action::InputPause,0,0));
+    [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
     complete(NSAlertFirstButtonReturn);
     assert(events.back()==std::make_tuple(office::Action::Resolution,2560,1440));
-    [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
+    [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
     const auto countBeforeTeardown = events.size();
     toolbar.reset();
     complete(NSAlertFirstButtonReturn);
@@ -188,7 +285,8 @@ int main() { @autoreleasepool {
     toolbar = std::make_unique<office::MacToolbar>(window,1920,1080,office::MouseMode::Local,
         [&](office::Action a,int x,int y){events.emplace_back(a,x,y);},false);
     target = (OfficeToolbarTarget*)window.toolbar.delegate;
-    [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
+    assert(![labels(target->controlMenu) containsObject:@"设备列表…"]); // no device manager in this process
+    [target resolutionChanged:[[[target->controlMenu itemAtIndex:0].submenu itemAtIndex:0].submenu itemAtIndex:3]];
     [target disconnect:nil];
     const auto afterDisconnect = events.size();
     assert(std::get<0>(events.back())==office::Action::Disconnect);
@@ -198,12 +296,12 @@ int main() { @autoreleasepool {
     toolbar = std::make_unique<office::MacToolbar>(window,1920,1080,office::MouseMode::Local,
         [&](office::Action a,int,int){if(a==office::Action::InputPause) toolbar.reset();},false);
     target = (OfficeToolbarTarget*)window.toolbar.delegate;
-    [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
+    [target resolutionChanged:[[[target->controlMenu itemAtIndex:0].submenu itemAtIndex:0].submenu itemAtIndex:3]];
     assert(!pendingCompletion && !toolbar);
     assert(class_getMethodImplementation(FakeSdlListener.class, optionsSelector) == fakeWrapped);
     window.delegate = nil;
     [window close]; [window release];
     [unregistered close]; [unregistered release];
     [listener release]; [empty release];
-    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, cached DPI controls, popup/overflow check marks, fullscreen label and auto-hide options, statistics summary/panel, resolution cancel/confirm, disconnect/teardown callback safety; no visible UI");
+    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, toolbar layout (device, summary, control center, red disconnect), control center menu order/texts with single check marks (resolution, DPI, mouse), input pause, fullscreen label and auto-hide options, connection info panel, resolution cancel/confirm (also while paused), disconnect/teardown callback safety; no visible UI");
 } }

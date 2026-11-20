@@ -1,4 +1,5 @@
 #include "streaming/session.h"
+#include "backend/nvcomputer.h"
 #include "connectconfirm.h"
 #include "sessionbridge.h"
 #include "videostats.h"
@@ -136,6 +137,10 @@ void Session::officeStartUi() {
         m_Office->mouseMode, [this](office::Action action, int first, int second) {
             officeAction(action, first, second);
         }, office::SessionBridge::isSessionProcess());
+    if (m_OfficeToolbar) {
+        m_OfficeToolbar->setDeviceName(m_Computer ? m_Computer->name.toUtf8().constData() : "");
+        m_OfficeToolbar->setInputPaused(m_OfficeInputPaused);
+    }
     // The statistics panel stays open across reconnects of this session.
     if (m_OfficeToolbar && m_Office->statisticsPanel) m_OfficeToolbar->setStatisticsVisible(true);
     // Sunshine may change the active display during launch/resume. Read DPI
