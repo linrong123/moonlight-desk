@@ -89,6 +89,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - IPv6 地址按 RFC 5952 规范化后匹配（大小写、前导零、`::` 压缩、内嵌 IPv4、可带方括号和端口），非法 IPv6 直接提示格式错误。
 - 会话进程（`--desk-session`）的退出确认改为中文 `DeskDialog`（“断开这台电脑的远程桌面并关闭窗口？”）；上游 `quitConfirmationDialog` 恢复原样，只在非办公模式使用。
 - 新增测试：`tst_deskconnector.qml` 的检测中卡片连接（配对/进入/被移除/超时）、`cancel()` 静默并释放地址栏、取消后晚到的添加与配对结果被忽略、再次配对复用进行中的请求、另一台配对需等待、IPv6 输入与匹配（方括号、端口、非法写法）；`tst_desklogic.qml` 的 IPv6 规范化。
+- 云端结果：提交 `d77f67b6`，Desk macOS run [44664386143](https://github.com/linrong123/moonlight-desk/actions/runs/44664386143) 通过（macOS arm64 构建与打包成功；QML 测试 68 项全部通过，SessionsTest 13 项全部通过）。
 
 ### 待实机验收
 
