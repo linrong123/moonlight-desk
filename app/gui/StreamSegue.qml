@@ -295,9 +295,21 @@ Item {
         sourceComponent: Item {}
     }
 
+    // Desk UI: light progress page; the upstream spinner/label below keep
+    // driving the stage text but are hidden.
+    Office.DeskProgress {
+        id: deskProgress
+        anchors.fill: parent
+        visible: typeof window !== "undefined" && window.deskUi === true
+        stage: stageLabel.text
+        busy: stageSpinner.visible
+        detail: hintText.visible ? hintText.text : ""
+    }
+
     Row {
         anchors.centerIn: parent
         spacing: 5
+        opacity: deskProgress.visible ? 0 : 1
 
         BusyIndicator {
             id: stageSpinner
@@ -316,7 +328,7 @@ Item {
         }
     }
 
-    Button {
+    Office.DeskButton {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.verticalCenter
         anchors.topMargin: 70
@@ -335,6 +347,7 @@ Item {
 
     Label {
         id: hintText
+        opacity: deskProgress.visible ? 0 : 1
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 50
         anchors.horizontalCenter: parent.horizontalCenter

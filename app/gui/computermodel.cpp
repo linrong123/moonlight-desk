@@ -46,6 +46,24 @@ QVariant ComputerModel::data(const QModelIndex& index, int role) const
         return computer->state == NvComputer::CS_UNKNOWN;
     case ServerSupportedRole:
         return computer->isSupportedServerVersion;
+    case AddressRole: {
+        // Office: prefer the address the user typed. The read lock is already
+        // held, so read the fields directly instead of uniqueAddresses().
+        for (const NvAddress* addr : {&computer->manualAddress, &computer->activeAddress, &computer->localAddress,
+                                      &computer->remoteAddress, &computer->ipv6Address}) {
+            if (!addr->isNull()) return addr->toString();
+        }
+        return QString();
+    }
+    case AddressesRole: {
+        QStringList addresses;
+        for (const NvAddress* addr : {&computer->activeAddress, &computer->localAddress, &computer->remoteAddress,
+                                      &computer->ipv6Address, &computer->manualAddress}) {
+            const QString text = addr->isNull() ? QString() : addr->toString().toLower();
+            if (!text.isEmpty() && !addresses.contains(text)) addresses.append(text);
+        }
+        return addresses;
+    }
     case DetailsRole: {
         QString state, pairState;
 
@@ -115,6 +133,8 @@ QHash<int, QByteArray> ComputerModel::roleNames() const
     names[ServerSupportedRole] = "serverSupported";
     names[DetailsRole] = "details";
     names[UuidRole] = "uuid";
+    names[AddressRole] = "address";
+    names[AddressesRole] = "addresses";
 
     return names;
 }

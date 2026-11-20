@@ -1,131 +1,203 @@
 import QtQuick 2.9
-import QtQuick.Controls 2.2
+import QtQuick.Controls 2.5
 import QtQml.Models 2.2
 import ComputerModel 1.0
 import ComputerManager 1.0
+import "deskstyle.js" as Style
+import "desklogic.js" as Logic
 
+// Wires the pure DeskHome view and DeskConnector flow to ComputerModel,
+// ComputerManager and DeskSessions (manager process only).
 DeskHome {
     id: desk
-    property string selectedUuid: ""
     property int modelRevision: 0
-    devices: computers
-    selectedIndex: {
+
+    devices: {
         modelRevision
-        for (var i = 0; i < deviceRows.count; ++i) {
-            if (computers.get(i).uuid === selectedUuid) return i
-        }
-        return -1
-    }
-    selectedDevice: {
-        modelRevision
-        return selectedIndex >= 0 ? computers.get(selectedIndex) : ({})
+        var list = []
+        for (var i = 0; i < deviceRows.count; ++i) list.push(computers.get(i))
+        return list
     }
     sessionStates: {
         DeskSessions.revision
-        modelRevision
         var states = {}
-        for (var i = 0; i < deviceRows.count; ++i) {
-            var uuid = computers.get(i).uuid
-            if (DeskSessions.isActive(uuid)) states[uuid] = DeskSessions.status(uuid)
+        for (var i = 0; i < devices.length; ++i) {
+            var uuid = devices[i].uuid
+            if (DeskSessions.isActive(uuid)) states[uuid] = DeskSessions.status(uuid) || "远程桌面已打开"
         }
         return states
     }
-    sessionCount: DeskSessions.count
-    sessionActive: { DeskSessions.revision; return !!selectedUuid && DeskSessions.isActive(selectedUuid) }
-    sessionStatus: { DeskSessions.revision; return selectedUuid ? DeskSessions.status(selectedUuid) : "" }
+    connecting: connector.busy
+    connectStatus: connector.statusText
+
     ComputerModel { id: computers }
     // Instantiator tracks the real model count, including discovery and removal.
-    Instantiator { id: deviceRows; model: computers; delegate: QtObject {} onCountChanged: Qt.callLater(desk.refreshSelection) }
-    function refreshSelection() {
-        modelRevision++
-        if (selectedIndex < 0 && deviceRows.count > 0) selectedUuid = computers.get(0).uuid
-        if (deviceRows.count === 0) selectedUuid = ""
+    Instantiator { id: deviceRows; model: computers; delegate: QtObject {} onCountChanged: Qt.callLater(desk.bump) }
+    function bump() { modelRevision++ }
+    Component.onCompleted: { computers.initialize(ComputerManager); bump() }
+
+    DeskConnector {
+        id: connector
+        devices: desk.devices
+        sessionStates: desk.sessionStates
+        onRequestAdd: function(address) { ComputerManager.addNewHostManually(address) }
+        onRequestPair: function(uuid, resume) { desk.beginPairing(uuid, resume) }
+        onRequestOpen: function(uuid) {
+            if (pendingAddress !== "") desk.addressText = ""
+            desk.openSession(uuid)
+        }
+        onFailed: function(message) { desk.showError(message) }
     }
-    Component.onCompleted: { computers.initialize(ComputerManager); refreshSelection() }
+
     Connections {
         target: computers
-        function onDataChanged() { desk.modelRevision++ }
-        function onModelReset() { Qt.callLater(desk.refreshSelection) }
+        function onDataChanged() { desk.bump() }
+        function onModelReset() { Qt.callLater(desk.bump) }
         function onPairingCompleted(error) {
+            // At most one pairing is in flight, so this result always ends the
+            // dialog's PIN; a cancelled attempt's result is dropped silently.
             pairDialog.close()
             pairDialog.pin = ""
-            if (error !== undefined && error !== null && error !== "") desk.showError(error)
+            if (connector.pairingCompleted(error) === "" && error !== undefined && error !== null && error !== "")
+                desk.showError("配对失败：" + error)
         }
     }
     Connections {
         target: ComputerManager
         function onComputerAddCompleted(success, detectedPortBlocking) {
-            if (!success) desk.showError(detectedPortBlocking ? "无法连接这台电脑，网络可能阻止了连接。请检查主机地址与网络。" : "无法连接这台电脑，请检查主机地址，并确认串流服务已开启。")
+            if (connector.addCompleted(success, detectedPortBlocking) === "" && !success)
+                desk.showError(Logic.addFailedText(detectedPortBlocking))
         }
     }
     Connections { target: DeskSessions; function onLaunchError(text) { desk.showError(text) } }
-    function showError(text) { errorText.text = text; errorDialog.open() }
-    onSelectDevice: function(index) { selectedUuid = computers.get(index).uuid }
-    onAddDevice: window.openDeskAddPc()
-    onSettings: window.openDeskSettings()
-    onQuitRequested: window.requestDeskQuit()
-    onEnterDesktop: {
-        if (sessionActive) DeskSessions.focus(selectedUuid)
-        else if (selectedIndex >= 0 && selectedDevice.online && selectedDevice.paired && !selectedDevice.statusUnknown && selectedDevice.serverSupported) DeskSessions.open(selectedUuid, selectedDevice.name)
-    }
-    onDisconnectDesktop: DeskSessions.disconnectSession(selectedUuid)
-    onPairDevice: {
-        if (selectedIndex < 0 || !selectedDevice.online || selectedDevice.paired) return
-        pairDialog.pin = computers.generatePinString()
-        pairDialog.open()
-        computers.pairComputer(selectedIndex, pairDialog.pin)
-    }
-    onWakeDevice: { if (selectedIndex >= 0) computers.wakeComputer(selectedIndex) }
-    onRenameDevice: { renameDialog.deviceUuid = selectedUuid; renameField.text = selectedDevice.name; renameDialog.open() }
-    onRemoveDevice: { if (!sessionActive) { removeDialog.deviceUuid = selectedUuid; removeDialog.deviceName = selectedDevice.name; removeDialog.open() } }
+
     function indexForUuid(uuid) {
         for (var i = 0; i < deviceRows.count; ++i) if (computers.get(i).uuid === uuid) return i
         return -1
     }
-    Dialog {
+    function showError(text) { errorDialog.message = text; errorDialog.open() }
+    function beginPairing(uuid, resume) {
+        var idx = indexForUuid(uuid)
+        if (idx < 0) { connector.pairingCompleted("设备已被移除。"); return }
+        if (resume && pairDialog.pin !== "") {
+            // The cancelled request is still waiting for this PIN on the host.
+            pairDialog.open()
+            return
+        }
+        pairDialog.pin = computers.generatePinString()
+        pairDialog.open()
+        computers.pairComputer(idx, pairDialog.pin)
+    }
+    function openSession(uuid) {
+        if (DeskSessions.isActive(uuid)) { DeskSessions.focus(uuid); return }
+        var d = device(uuid)
+        if (d) DeskSessions.open(uuid, d.name)
+    }
+
+    onConnectRequested: function(address) { connector.submit(address) }
+    onOpenDevice: function(uuid) {
+        if (DeskSessions.isActive(uuid)) DeskSessions.focus(uuid)
+        else connector.start(uuid)
+    }
+    onPairDevice: function(uuid) { connector.start(uuid) }
+    onWakeDevice: function(uuid) { var idx = indexForUuid(uuid); if (idx >= 0) computers.wakeComputer(idx) }
+    onDisconnectDevice: function(uuid) { DeskSessions.disconnectSession(uuid) }
+    onRenameDevice: function(uuid) {
+        var d = device(uuid)
+        if (!d) return
+        renameDialog.deviceUuid = uuid
+        renameField.text = d.name
+        renameDialog.open()
+    }
+    onRemoveDevice: function(uuid) {
+        var d = device(uuid)
+        if (!d || DeskSessions.isActive(uuid)) return
+        removeDialog.deviceUuid = uuid
+        removeDialog.message = "从“我的设备”中移除“" + d.name + "”？再次连接需要重新配对。"
+        removeDialog.open()
+    }
+    onSettings: window.openDeskSettings()
+    onQuitRequested: window.requestDeskQuit()
+
+    DeskDialog {
         id: pairDialog
+        objectName: "pairDialog"
         property string pin: ""
-        anchors.centerIn: parent
-        width: Math.min(420, desk.width - 40)
         title: "配对电脑"
-        modal: true
+        acceptText: ""
+        rejectText: "取消"
         closePolicy: Popup.NoAutoClose
-        contentItem: Column {
-            spacing: 18
-            Text { objectName: "pairPrompt"; width: parent.width; text: "请在被控电脑弹出的窗口中输入验证码 " + pairDialog.pin; wrapMode: Text.Wrap; color: "#24324a"; font.pixelSize: 15 }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: pairDialog.pin; font.pixelSize: 34; font.letterSpacing: 8; color: "#4674ef" }
-            Text { objectName: "pairFallback"; width: parent.width; text: "若被控端未弹窗（旧版或原版 Sunshine），请在其网页管理后台的 PIN 页面输入"; wrapMode: Text.Wrap; color: "#7a879a"; font.pixelSize: 12 }
+        // Local give-up only: ComputerModel cannot abort a pairing request.
+        // The PIN is kept so pairing this device again resumes the request.
+        onRejected: connector.cancel()
+        Text {
+            objectName: "pairPrompt"
+            width: parent.width
+            text: "请在被控电脑弹出的窗口中输入验证码 " + pairDialog.pin
+            wrapMode: Text.Wrap
+            color: Style.text
+            font.pixelSize: 15
+        }
+        Rectangle {
+            width: parent.width
+            height: 76
+            radius: Style.radius
+            color: Style.accentSoft
+            Text {
+                anchors.centerIn: parent
+                text: pairDialog.pin
+                font.pixelSize: 36
+                font.bold: true
+                font.letterSpacing: 10
+                color: Style.accent
+            }
+        }
+        Text {
+            objectName: "pairFallback"
+            width: parent.width
+            text: "若被控端没有弹窗（旧版或原版 Sunshine），请在它的网页管理后台 PIN 页面输入。"
+            wrapMode: Text.Wrap
+            color: Style.textMuted
+            font.pixelSize: Style.fontSmall
         }
     }
-    Dialog {
+    DeskDialog {
         id: errorDialog
-        anchors.centerIn: parent
-        width: Math.min(440, desk.width - 40)
+        objectName: "errorDialog"
         title: "连接提示"
-        modal: true
-        standardButtons: Dialog.Ok
-        Text { id: errorText; width: parent.width; wrapMode: Text.Wrap; color: "#55647a" }
     }
-    Dialog {
+    DeskDialog {
         id: renameDialog
         property string deviceUuid
-        anchors.centerIn: parent
         title: "重命名设备"
-        modal: true
-        standardButtons: Dialog.Ok | Dialog.Cancel
-        TextField { id: renameField; width: 300; selectByMouse: true; maximumLength: 100 }
+        rejectText: "取消"
+        acceptText: "保存"
+        acceptEnabled: renameField.text.trim() !== ""
+        TextField {
+            id: renameField
+            width: parent.width
+            selectByMouse: true
+            maximumLength: 100
+            color: Style.text
+            Keys.onReturnPressed: if (renameDialog.acceptEnabled) renameDialog.accept()
+            Keys.onEnterPressed: if (renameDialog.acceptEnabled) renameDialog.accept()
+        }
         onOpened: { renameField.forceActiveFocus(); renameField.selectAll() }
-        onAccepted: { var idx = desk.indexForUuid(deviceUuid); if (idx >= 0 && renameField.text.trim()) computers.renameComputer(idx, renameField.text.trim()) }
+        onAccepted: {
+            var idx = desk.indexForUuid(deviceUuid)
+            if (idx >= 0 && renameField.text.trim()) computers.renameComputer(idx, renameField.text.trim())
+        }
     }
-    Dialog {
+    DeskDialog {
         id: removeDialog
         property string deviceUuid
-        property string deviceName
-        anchors.centerIn: parent
         title: "移除设备"
-        modal: true
-        standardButtons: Dialog.Yes | Dialog.No
-        Text { text: "从设备列表移除“" + removeDialog.deviceName + "”？"; color: "#55647a" }
-        onAccepted: { var idx = desk.indexForUuid(deviceUuid); if (idx >= 0 && !DeskSessions.isActive(deviceUuid)) computers.deleteComputer(idx) }
+        rejectText: "取消"
+        acceptText: "移除"
+        acceptKind: "danger"
+        onAccepted: {
+            var idx = desk.indexForUuid(deviceUuid)
+            if (idx >= 0 && !DeskSessions.isActive(deviceUuid)) computers.deleteComputer(idx)
+        }
     }
 }

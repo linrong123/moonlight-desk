@@ -17,7 +17,10 @@ class ComputerModel : public QAbstractListModel
         StatusUnknownRole,
         ServerSupportedRole,
         DetailsRole,
-        UuidRole
+        UuidRole,
+        // Office: addresses for the Desk workbench (display and address lookup).
+        AddressRole,
+        AddressesRole
     };
 
 public:

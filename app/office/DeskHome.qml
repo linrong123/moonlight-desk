@@ -1,209 +1,377 @@
 import QtQuick 2.9
-import QtQuick.Controls 2.2
-import QtQuick.Layouts 1.3
+import QtQuick.Controls 2.5
+import QtQuick.Controls.Material 2.2
+import "deskstyle.js" as Style
+import "desklogic.js" as Logic
 
+// Desk workbench view. Pure view: data comes in through properties and every
+// action leaves through a signal, so tests can drive it with plain objects.
 Rectangle {
     id: home
     objectName: "远程桌面"
-    color: "#f5f7fa"
-    property var devices
-    property var selectedDevice: ({})
-    property int selectedIndex: -1
-    property int sessionCount: 0
-    property bool sessionActive: false
-    property string sessionStatus: ""
+    Material.accent: Style.accent
+    color: Style.background
+
+    // [{uuid, name, address, addresses, online, paired, wakeable, statusUnknown, serverSupported}]
+    property var devices: []
+    // uuid -> session status text, only for devices with an open session.
     property var sessionStates: ({})
-    property string searchText: search.text
-    signal selectDevice(int index)
-    signal addDevice()
+    property bool connecting: false
+    property string connectStatus: ""
+    property alias addressText: addressInput.text
+
+    signal connectRequested(string address)
+    signal openDevice(string uuid)
+    signal pairDevice(string uuid)
+    signal wakeDevice(string uuid)
+    signal renameDevice(string uuid)
+    signal removeDevice(string uuid)
+    signal disconnectDevice(string uuid)
     signal settings()
-    signal enterDesktop()
-    signal disconnectDesktop()
-    signal pairDevice()
-    signal wakeDevice()
-    signal renameDevice()
-    signal removeDevice()
     signal quitRequested()
-    function stateText(device) {
-        if (!device || !device.name) return ""
-        if (device.statusUnknown) return "正在检测"
-        if (!device.online) return "离线"
-        if (!device.paired) return "待配对"
-        return "在线"
+
+    readonly property int deviceCount: devices ? devices.length : 0
+
+    function device(uuid) { return Logic.findDevice(devices, uuid) }
+    function sessionActive(uuid) { return !!(sessionStates && sessionStates[uuid]) }
+    function menuActions(uuid) { return Logic.menuActions(device(uuid), sessionActive(uuid)) }
+    function primaryAction(uuid) { return Logic.primaryAction(device(uuid), sessionActive(uuid)) }
+
+    function submitAddress() {
+        if (connecting) return
+        connectRequested(addressInput.text.trim())
     }
-    function stateColor(device) {
-        return device.statusUnknown ? "#a2aaba" : (!device.online ? "#a2aaba" : (!device.paired ? "#d99a32" : "#2fa985"))
+
+    // Runs one card/menu action after re-checking it is still allowed.
+    function trigger(uuid, action) {
+        var d = device(uuid)
+        if (!d) return false
+        var active = sessionActive(uuid)
+        var allowed = action === "open" ? Logic.primaryAction(d, active).action === "open"
+                    : Logic.hasAction(Logic.menuActions(d, active), action) ||
+                      Logic.primaryAction(d, active).action === action
+        if (!allowed) return false
+        if (action === "open") openDevice(uuid)
+        else if (action === "pair") pairDevice(uuid)
+        else if (action === "wake") wakeDevice(uuid)
+        else if (action === "rename") renameDevice(uuid)
+        else if (action === "remove") removeDevice(uuid)
+        else if (action === "disconnect") disconnectDevice(uuid)
+        else return false
+        return true
     }
-    RowLayout {
-        anchors.fill: parent
-        spacing: 0
-        Rectangle {
-            Layout.preferredWidth: 292
-            Layout.fillHeight: true
-            color: "#ffffff"
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 24
-                spacing: 18
-                RowLayout {
-                    spacing: 10
-                    Rectangle {
-                        width: 34; height: 34; radius: 11; color: "#4674ef"
-                        Text { anchors.centerIn: parent; text: "D"; color: "white"; font.pixelSize: 20; font.bold: true }
+
+    function showMenu(uuid, item) {
+        deviceMenu.uuid = uuid
+        deviceMenu.items = menuActions(uuid)
+        deviceMenu.popup(item, 0, item.height)
+    }
+
+    // Top bar ------------------------------------------------------------------
+    Item {
+        id: topBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 64
+        Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.pageMargin
+            anchors.verticalCenter: parent.verticalCenter
+            text: "Moonlight Desk"
+            font.pixelSize: Style.fontTitle
+            font.bold: true
+            color: Style.text
+        }
+        Row {
+            anchors.right: parent.right
+            anchors.rightMargin: Style.pageMargin - 8
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 4
+            DeskButton {
+                objectName: "settingsButton"
+                kind: "ghost"
+                text: "⚙  设置"
+                onClicked: home.settings()
+            }
+            DeskButton {
+                objectName: "quitButton"
+                kind: "ghost"
+                text: "退出"
+                onClicked: home.quitRequested()
+            }
+        }
+    }
+
+    Flickable {
+        id: page
+        anchors.top: topBar.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        contentWidth: width
+        contentHeight: content.height + Style.pageMargin
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {}
+
+        Column {
+            id: content
+            x: Style.pageMargin
+            width: page.width - 2 * Style.pageMargin
+            spacing: Style.spacingLarge
+
+            // Connect card --------------------------------------------------------
+            Rectangle {
+                width: parent.width
+                height: connectColumn.height + 48
+                radius: Style.radiusLarge
+                color: Style.surface
+                border.color: Style.border
+
+                Column {
+                    id: connectColumn
+                    x: 24
+                    y: 24
+                    width: parent.width - 48
+                    spacing: Style.spacing
+
+                    Text {
+                        text: "连接远程桌面"
+                        font.pixelSize: Style.fontHeadline
+                        font.bold: true
+                        color: Style.text
                     }
-                    Column {
-                        Text { text: "Moonlight Desk"; font.pixelSize: 18; font.bold: true; color: "#25324a" }
-                        Text { text: "你的远程工作空间"; font.pixelSize: 11; color: "#8a94a6" }
+                    Text {
+                        width: parent.width
+                        text: "输入被控电脑的 IP 地址或域名。新设备会先配对，配对后直接进入桌面。"
+                        font.pixelSize: Style.fontBody
+                        color: Style.textMuted
+                        wrapMode: Text.Wrap
                     }
-                }
-                TextField {
-                    id: search
-                    objectName: "deviceSearch"
-                    Layout.fillWidth: true
-                    placeholderText: "搜索设备"
-                    font.pixelSize: 13
-                    selectByMouse: true
-                    background: Rectangle { color: "#f4f6f9"; radius: 9; border.color: search.activeFocus ? "#92acf4" : "#edf0f5" }
-                    leftPadding: 13
-                }
-                RowLayout {
-                    Text { text: "我的设备"; font.pixelSize: 12; font.bold: true; color: "#8792a4"; Layout.fillWidth: true }
-                    Button { text: "+ 添加"; flat: true; font.pixelSize: 12; onClicked: home.addDevice() }
-                }
-                ListView {
-                    id: deviceList
-                    objectName: "deviceList"
-                    Layout.fillHeight: true
-                    Layout.fillWidth: true
-                    clip: true
-                    spacing: 8
-                    model: home.devices
-                    ScrollBar.vertical: ScrollBar {}
-                    delegate: Item {
-                        property bool matches: !home.searchText || model.name.toLowerCase().indexOf(home.searchText.toLowerCase()) !== -1
-                        width: deviceList.width
-                        height: matches ? 76 : 0
-                        visible: matches
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 11
-                            color: home.selectedIndex === index ? "#edf2ff" : (deviceMouse.containsMouse ? "#f7f9fc" : "#ffffff")
-                            border.color: home.selectedIndex === index ? "#d8e3ff" : "transparent"
-                            RowLayout {
-                                anchors.fill: parent; anchors.margins: 13; spacing: 12
-                                Rectangle {
-                                    width: 34; height: 29; radius: 5; color: "transparent"; border.width: 1.5; border.color: home.selectedIndex === index ? "#577fe3" : "#a4afbf"
-                                    Rectangle { width: 12; height: 2; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: -5; color: parent.border.color }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 5
-                                    Text { text: model.name; color: "#2c3951"; font.pixelSize: 14; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Row {
-                                        spacing: 5
-                                        Rectangle { width: 6; height: 6; radius: 3; color: home.sessionStates[model.uuid] ? "#4674ef" : home.stateColor(model); anchors.verticalCenter: parent.verticalCenter }
-                                        Text { text: home.sessionStates[model.uuid] || home.stateText(model); color: "#8792a4"; font.pixelSize: 11 }
-                                    }
-                                }
+                    Row {
+                        width: parent.width
+                        spacing: Style.spacing
+                        TextField {
+                            id: addressInput
+                            objectName: "addressInput"
+                            width: parent.width - connectButton.width - parent.spacing
+                            height: Style.inputHeight
+                            placeholderText: "输入被控端 IP 或域名"
+                            placeholderTextColor: Style.textFaint
+                            color: Style.text
+                            font.pixelSize: 16
+                            leftPadding: 14
+                            rightPadding: 14
+                            topPadding: 0
+                            bottomPadding: 0
+                            verticalAlignment: TextInput.AlignVCenter
+                            selectByMouse: true
+                            enabled: !home.connecting
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
+                            background: Rectangle {
+                                radius: Style.radius
+                                color: Style.surfaceAlt
+                                border.width: addressInput.activeFocus ? 2 : 1
+                                border.color: addressInput.activeFocus ? Style.accent : Style.border
                             }
-                            MouseArea { id: deviceMouse; anchors.fill: parent; hoverEnabled: true; onClicked: home.selectDevice(index) }
+                            Keys.onReturnPressed: home.submitAddress()
+                            Keys.onEnterPressed: home.submitAddress()
+                        }
+                        DeskButton {
+                            id: connectButton
+                            objectName: "connectButton"
+                            kind: "primary"
+                            width: 112
+                            height: Style.inputHeight
+                            font.pixelSize: 16
+                            text: home.connecting ? "连接中…" : "连接"
+                            enabled: !home.connecting
+                            onClicked: home.submitAddress()
                         }
                     }
                     Text {
-                        anchors.centerIn: parent
+                        objectName: "connectStatus"
+                        width: parent.width
+                        visible: text !== ""
+                        text: home.connectStatus
+                        font.pixelSize: Style.fontSmall + 1
+                        color: Style.accent
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+
+            // Devices ---------------------------------------------------------------
+            Row {
+                spacing: Style.spacingSmall
+                Text {
+                    text: "我的设备"
+                    font.pixelSize: Style.fontTitle
+                    font.bold: true
+                    color: Style.text
+                }
+                Text {
+                    anchors.baseline: parent.children[0].baseline
+                    text: home.deviceCount > 0 ? home.deviceCount + " 台" : ""
+                    font.pixelSize: Style.fontBody
+                    color: Style.textFaint
+                }
+            }
+
+            Rectangle {
+                objectName: "emptyState"
+                width: parent.width
+                height: 168
+                visible: home.deviceCount === 0
+                radius: Style.radiusLarge
+                color: "transparent"
+                border.color: Style.borderStrong
+                Column {
+                    anchors.centerIn: parent
+                    width: parent.width - 48
+                    spacing: Style.spacingSmall
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "还没有设备"
+                        font.pixelSize: 16
+                        font.bold: true
+                        color: Style.text
+                    }
+                    Text {
+                        objectName: "emptyHint"
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
+                        text: "在上方输入被控电脑的 IP 地址或域名，点击“连接”。\n被控电脑需要先安装并运行 Sunshine Desk。"
+                        font.pixelSize: Style.fontBody
+                        lineHeight: 1.3
+                        color: Style.textMuted
                         wrapMode: Text.Wrap
-                        text: deviceList.count === 0 ? "还没有设备\n添加电脑后，即可开始远程办公" : ""
-                        color: "#9aa4b4"; font.pixelSize: 12; lineHeight: 1.6
                     }
-                }
-                Rectangle { Layout.fillWidth: true; height: 1; color: "#eef1f5" }
-                RowLayout {
-                    Button { text: "设置"; flat: true; onClicked: home.settings() }
-                    Item { Layout.fillWidth: true }
-                    Button { text: "退出"; flat: true; onClicked: home.quitRequested() }
                 }
             }
-        }
-        Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: "#e7ecf3" }
-        Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            ColumnLayout {
-                anchors.fill: parent; anchors.margins: 38; spacing: 20
-                RowLayout {
-                    Layout.fillWidth: true
-                    ColumnLayout {
-                        spacing: 5
-                        Text { text: "工作台"; font.pixelSize: 23; font.bold: true; color: "#26334b" }
-                        Text { text: "每台电脑，一个独立桌面窗口"; font.pixelSize: 12; color: "#8b96a8" }
-                    }
-                    Item { Layout.fillWidth: true }
-                    Rectangle {
-                        width: sessionLabel.implicitWidth + 24; height: 29; radius: 14; color: "#e9eef7"
-                        Text { id: sessionLabel; anchors.centerIn: parent; text: home.sessionCount > 0 ? home.sessionCount + " 个桌面会话" : "就绪"; color: "#6f809d"; font.pixelSize: 11 }
-                    }
-                }
-                Item { Layout.fillHeight: true; Layout.maximumHeight: 25 }
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.maximumHeight: 405
-                    Layout.minimumHeight: 330
-                    radius: 17; color: "white"; border.color: "#e7ecf3"
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        width: parent.width - 64
-                        spacing: 18
+
+            Flow {
+                id: deviceList
+                objectName: "deviceList"
+                width: parent.width
+                spacing: Style.spacing
+                visible: home.deviceCount > 0
+                readonly property int columns: Math.max(1, Math.floor((width + spacing) / (260 + spacing)))
+                readonly property real cardWidth: (width - (columns - 1) * spacing) / columns
+
+                Repeater {
+                    id: cards
+                    model: home.devices
+                    delegate: Rectangle {
+                        id: card
+                        objectName: "deviceCard"
+                        readonly property var device: modelData
+                        readonly property string uuid: modelData.uuid
+                        readonly property string session: home.sessionStates && home.sessionStates[uuid] ? home.sessionStates[uuid] : ""
+                        readonly property var primary: Logic.primaryAction(device, session !== "")
+                        width: deviceList.cardWidth
+                        height: 156
+                        radius: Style.radiusLarge
+                        color: Style.surface
+                        border.width: session !== "" ? 2 : 1
+                        border.color: session !== "" ? Style.accent : cardMouse.containsMouse ? Style.borderStrong : Style.border
+
+                        MouseArea {
+                            id: cardMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: function(mouse) {
+                                if (mouse.button === Qt.RightButton) home.showMenu(card.uuid, menuButton)
+                            }
+                            onDoubleClicked: if (card.primary.action === "open") home.trigger(card.uuid, "open")
+                        }
+
                         Rectangle {
-                            Layout.alignment: Qt.AlignHCenter
-                            width: 94; height: 78; radius: 19; color: "#edf2ff"
-                            Rectangle {
-                                anchors.centerIn: parent; width: 48; height: 33; radius: 4; color: "#f8faff"; border.color: "#7899ed"; border.width: 2
-                                Rectangle { width: 2; height: 7; color: "#7899ed"; anchors.top: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter }
-                                Rectangle { width: 22; height: 2; color: "#7899ed"; anchors.top: parent.bottom; anchors.topMargin: 6; anchors.horizontalCenter: parent.horizontalCenter }
-                            }
+                            id: dot
+                            x: 20
+                            y: 26
+                            width: 10
+                            height: 10
+                            radius: 5
+                            color: Style.stateColor(Logic.stateKind(card.device, card.session))
                         }
                         Text {
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter
-                            text: home.selectedDevice.name || "连接你的办公电脑"
-                            font.pixelSize: 25; font.bold: true; color: "#26334b"; elide: Text.ElideRight
+                            objectName: "deviceName"
+                            anchors.left: dot.right
+                            anchors.leftMargin: 10
+                            anchors.right: menuButton.left
+                            anchors.rightMargin: 4
+                            anchors.verticalCenter: dot.verticalCenter
+                            text: card.device.name || "未命名设备"
+                            font.pixelSize: 16
+                            font.bold: true
+                            color: Style.text
+                            elide: Text.ElideRight
+                        }
+                        DeskButton {
+                            id: menuButton
+                            objectName: "cardMenuButton"
+                            anchors.right: parent.right
+                            anchors.rightMargin: 10
+                            anchors.verticalCenter: dot.verticalCenter
+                            kind: "ghost"
+                            implicitWidth: 36
+                            leftPadding: 0
+                            rightPadding: 0
+                            text: "⋯"
+                            font.pixelSize: 18
+                            onClicked: home.showMenu(card.uuid, menuButton)
                         }
                         Text {
-                            objectName: "deviceStatus"
-                            Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
-                            text: !home.selectedDevice.name ? "从左侧选择设备，或添加一台新电脑" : (home.sessionActive ? home.sessionStatus : (home.selectedDevice.statusUnknown ? "正在检测设备状态，请稍候" : (!home.selectedDevice.online ? "设备当前离线，请确认电脑已开机并连接网络" : (!home.selectedDevice.paired ? "首次连接，请先与这台电脑配对" : "设备已就绪，可以进入远程桌面"))))
-                            color: "#8b96a8"; font.pixelSize: 13
+                            objectName: "deviceAddress"
+                            x: 40
+                            y: 50
+                            width: parent.width - 60
+                            text: Logic.displayAddress(card.device.address) || " "
+                            font.pixelSize: Style.fontSmall + 1
+                            color: Style.textMuted
+                            elide: Text.ElideMiddle
                         }
-                        RowLayout {
-                            Layout.alignment: Qt.AlignHCenter; spacing: 12
-                            Button {
-                                objectName: "enterDesktopButton"
-                                text: home.sessionActive ? "显示桌面窗口" : "进入桌面"
-                                visible: !!home.selectedDevice.name && (home.selectedDevice.paired || home.sessionActive)
-                                enabled: home.sessionActive || !!(home.selectedDevice.online && !home.selectedDevice.statusUnknown && home.selectedDevice.serverSupported)
-                                implicitWidth: 168; implicitHeight: 46
-                                contentItem: Text { text: parent.text; color: parent.enabled ? "white" : "#9aa6bf"; font.pixelSize: 14; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                background: Rectangle { radius: 10; color: parent.enabled ? (parent.down ? "#365dcc" : "#4674ef") : "#edf1f8" }
-                                onClicked: home.enterDesktop()
-                            }
-                            Button { text: "开始配对"; visible: !!home.selectedDevice.name && home.selectedDevice.online && !home.selectedDevice.statusUnknown && !home.selectedDevice.paired; onClicked: home.pairDevice() }
-                            Button { text: "唤醒电脑"; visible: !!home.selectedDevice.name && !home.selectedDevice.online && !home.selectedDevice.statusUnknown && home.selectedDevice.wakeable; onClicked: home.wakeDevice() }
-                            Button { text: "添加设备"; visible: !home.selectedDevice.name; onClicked: home.addDevice() }
-                            Button { objectName: "disconnectButton"; text: "断开 / 取消"; visible: home.sessionActive; flat: true; onClicked: home.disconnectDesktop() }
+                        Text {
+                            objectName: "deviceState"
+                            x: 40
+                            y: 72
+                            width: parent.width - 60
+                            text: Logic.stateText(card.device, card.session)
+                            font.pixelSize: Style.fontSmall + 1
+                            color: card.session !== "" ? Style.accent : Style.textFaint
+                            elide: Text.ElideRight
                         }
-                        Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; text: home.selectedDevice.online && !home.selectedDevice.serverSupported ? "此电脑的串流服务版本不受支持，请检查主机端版本" : ""; color: "#b58030"; font.pixelSize: 12; wrapMode: Text.Wrap }
+                        DeskButton {
+                            objectName: "cardPrimary"
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 16
+                            kind: card.primary.action === "open" ? "primary" : "secondary"
+                            text: card.primary.text
+                            enabled: card.primary.enabled
+                            onClicked: home.trigger(card.uuid, card.primary.action)
+                        }
                     }
                 }
-                RowLayout {
-                    visible: !!home.selectedDevice.name
-                    Text { text: "设备管理"; color: "#8b96a8"; font.pixelSize: 12; Layout.fillWidth: true }
-                    Button { text: "重命名"; flat: true; onClicked: home.renameDevice() }
-                    Button { text: "移除设备"; flat: true; enabled: !home.sessionActive; onClicked: home.removeDevice() }
-                }
-                Item { Layout.fillHeight: true }
-                Text { text: "Moonlight Desk  ·  让熟悉的电脑，随时在身边"; color: "#a4adbb"; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
             }
         }
+    }
+
+    Menu {
+        id: deviceMenu
+        objectName: "deviceMenu"
+        property string uuid: ""
+        property var items: []
+        function has(action) { return Logic.hasAction(items, action) }
+
+        MenuItem { text: "断开"; visible: deviceMenu.has("disconnect"); height: visible ? implicitHeight : 0; onTriggered: home.trigger(deviceMenu.uuid, "disconnect") }
+        MenuItem { text: "配对"; visible: deviceMenu.has("pair"); height: visible ? implicitHeight : 0; onTriggered: home.trigger(deviceMenu.uuid, "pair") }
+        MenuItem { text: "唤醒"; visible: deviceMenu.has("wake"); height: visible ? implicitHeight : 0; onTriggered: home.trigger(deviceMenu.uuid, "wake") }
+        MenuItem { text: "重命名"; visible: deviceMenu.has("rename"); height: visible ? implicitHeight : 0; onTriggered: home.trigger(deviceMenu.uuid, "rename") }
+        MenuItem { text: "移除"; visible: deviceMenu.has("remove"); height: visible ? implicitHeight : 0; onTriggered: home.trigger(deviceMenu.uuid, "remove") }
     }
 }

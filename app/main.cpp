@@ -997,6 +997,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("DeskSessions", &deskSessions);
     engine.rootContext()->setContextProperty("DeskSessionBridge", &deskSessionBridge);
     engine.rootContext()->setContextProperty("deskManagerMode", deskManagerMode);
+    // Desk UI restyle also applies to the per-desktop session process.
+    engine.rootContext()->setContextProperty("deskSessionMode", office::SessionBridge::isSessionProcess());
     if (deskManagerMode) {
         app.setQuitOnLastWindowClosed(false);
         deskSessions.setPrepareLaunch([&engine](const QString& uuid) {
