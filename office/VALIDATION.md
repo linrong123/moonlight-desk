@@ -114,6 +114,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 下拉菜单只勾选当前项：`validateMenuItem` 不再改写 NSPopUpButton 自己菜单项的状态，只设置溢出子菜单项。
 - “全屏”按钮与溢出菜单项按窗口实际状态显示“全屏”/“退出全屏”（含非 Spaces 独占全屏）；绿色按钮切换后 SDL 标志过期时，工具栏按钮改用原生 `toggleFullScreen:`。
 - Spaces 全屏时工具栏与菜单栏自动隐藏：运行时包装 SDL2 窗口委托（不改 SDL 源码），只作用于办公会话窗口，详见 [显示设置](DISPLAY_SETTINGS.md#全屏实现说明)。
+- 实机发现全屏未自动隐藏：委托实际类为 `SDL3Cocoa_WindowListener`（sdl2-compat 转发 SDL3 3.4.18），原补丁写死 `Cocoa_WindowListener` 而静默跳过。改为包装 `object_getClass(window.delegate)`，每类一次并写会话日志；删除无效的“创建时已全屏则补设 presentationOptions”分支（实测进入全屏后设置不生效）。修正组合在 macOS 上用探针实测：工具栏随菜单栏隐藏、内容区占满屏幕；“鼠标到顶部显示工具栏”未在探针中验证。`check.mm` 新增假委托类断言（包装落在实际类、只包装已实现方法、每类一次、未登记窗口不变、无方法时记录未安装）。
 - 统计移出视频：工具栏常驻中文摘要 + 悬停详情；“统计”按钮切换不抢焦点的 HUD 浮窗；`ffmpeg.cpp` 仅办公会话发布样本，上游 Ctrl+Alt+Shift+S 叠加不变。
 - 自动测试：`tests/office/toolbar/check.mm` 新增勾选、全屏文字、presentationOptions 组合、摘要/浮窗（不能成为 key/main、FullScreenAuxiliary、开关事件、关闭事件）断言；新增 `office/tests/videostats_test.cpp`（中文摘要/详情、编码名称、跨线程最新样本通道），均接入 `office/macos/test.sh`。`videostats_test` 已在 Windows MSVC（`/std:c++17 /W4 /WX`）本地通过。
 

@@ -1,7 +1,9 @@
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 #include <SDL_syswm.h>
+#include <map>
 #include <set>
+#include <string>
 #include "toolbar.h"
 
 // All AppKit work and callbacks run on the session's main thread. The sheet owns
@@ -34,44 +36,63 @@ static NSApplicationPresentationOptions officeFullscreenOptions(NSApplicationPre
     return options;
 }
 
-// SDL's Cocoa_WindowListener forces the menu bar hidden in a fullscreen Space
+// SDL's window delegate (the class SDL installs, currently SDL3Cocoa_WindowListener
+// through sdl2-compat) forces the menu bar hidden in a fullscreen Space
 // (willUseFullScreenPresentationOptions and setMenuBarVisible:NO). The SDL source
-// stays unmodified: its methods are wrapped once at runtime, call the original
-// first, and only adjust windows registered above. Recheck after SDL upgrades.
-static void officeWrapFullscreenListener() {
-    static bool wrapped = false;
-    if (wrapped) return;
-    wrapped = true;
-    Class listener = objc_getClass("Cocoa_WindowListener");
-    if (!listener) return;
-    const SEL optionsSelector = @selector(window:willUseFullScreenPresentationOptions:);
-    if (Method method = class_getInstanceMethod(listener, optionsSelector)) {
-        using Options = NSApplicationPresentationOptions (*)(id, SEL, NSWindow*, NSApplicationPresentationOptions);
-        const Options original = reinterpret_cast<Options>(method_getImplementation(method));
-        IMP wrapper = imp_implementationWithBlock(^NSApplicationPresentationOptions(id object, NSWindow* window,
-                NSApplicationPresentationOptions proposed) {
-            const NSApplicationPresentationOptions options = original(object, optionsSelector, window, proposed);
-            return officeToolbarWindows().count(window) ? officeFullscreenOptions(options) : options;
-        });
-        class_replaceMethod(listener, optionsSelector, wrapper, method_getTypeEncoding(method));
+// stays unmodified: the delegate's actual class is wrapped once at runtime, the
+// wrappers call the original first and only adjust windows registered above.
+// The class name is not hardcoded because it changes with the SDL build; every
+// call logs which class and methods carry the wrapper. Recheck after SDL upgrades.
+static std::string officeWrapFullscreenListener(NSWindow* window) {
+    static std::map<Class, std::string> wrappedClasses;
+    id delegate = window.delegate;
+    Class listener = delegate ? object_getClass(delegate) : Nil;
+    std::string result;
+    if (!listener) {
+        result = "fullscreen auto-hide not installed: window has no delegate";
+    } else if (wrappedClasses.count(listener)) {
+        result = wrappedClasses[listener];
+    } else {
+        std::string methods;
+        const SEL optionsSelector = @selector(window:willUseFullScreenPresentationOptions:);
+        if (Method method = class_getInstanceMethod(listener, optionsSelector)) {
+            using Options = NSApplicationPresentationOptions (*)(id, SEL, NSWindow*, NSApplicationPresentationOptions);
+            const Options original = reinterpret_cast<Options>(method_getImplementation(method));
+            IMP wrapper = imp_implementationWithBlock(^NSApplicationPresentationOptions(id object, NSWindow* target,
+                    NSApplicationPresentationOptions proposed) {
+                const NSApplicationPresentationOptions options = original(object, optionsSelector, target, proposed);
+                return officeToolbarWindows().count(target) ? officeFullscreenOptions(options) : options;
+            });
+            class_replaceMethod(listener, optionsSelector, wrapper, method_getTypeEncoding(method));
+            methods += " window:willUseFullScreenPresentationOptions:";
+        }
+        for (SEL selector : {@selector(windowDidEnterFullScreen:), @selector(windowDidBecomeKey:)}) {
+            Method method = class_getInstanceMethod(listener, selector);
+            if (!method) continue;
+            using Notify = void (*)(id, SEL, NSNotification*);
+            const Notify original = reinterpret_cast<Notify>(method_getImplementation(method));
+            IMP wrapper = imp_implementationWithBlock(^(id object, NSNotification* notification) {
+                original(object, selector, notification);
+                id target = notification.object;
+                // YES restores the automatic menu bar of the fullscreen Space; SDL
+                // itself does the same when the window resigns key in fullscreen.
+                if ([target isKindOfClass:NSWindow.class] && officeToolbarWindows().count(target) &&
+                    ([(NSWindow*)target styleMask] & NSWindowStyleMaskFullScreen)) {
+                    [NSMenu setMenuBarVisible:YES];
+                }
+            });
+            class_replaceMethod(listener, selector, wrapper, method_getTypeEncoding(method));
+            methods += " ";
+            methods += sel_getName(selector);
+        }
+        const std::string name = class_getName(listener);
+        result = methods.empty()
+            ? "fullscreen auto-hide not installed: " + name + " implements none of the wrapped methods"
+            : "fullscreen auto-hide wrapped " + name + ":" + methods;
+        wrappedClasses[listener] = result;
     }
-    for (SEL selector : {@selector(windowDidEnterFullScreen:), @selector(windowDidBecomeKey:)}) {
-        Method method = class_getInstanceMethod(listener, selector);
-        if (!method) continue;
-        using Notify = void (*)(id, SEL, NSNotification*);
-        const Notify original = reinterpret_cast<Notify>(method_getImplementation(method));
-        IMP wrapper = imp_implementationWithBlock(^(id object, NSNotification* notification) {
-            original(object, selector, notification);
-            id window = notification.object;
-            // YES restores the automatic menu bar of the fullscreen Space; SDL
-            // itself does the same when the window resigns key in fullscreen.
-            if ([window isKindOfClass:NSWindow.class] && officeToolbarWindows().count(window) &&
-                ([(NSWindow*)window styleMask] & NSWindowStyleMaskFullScreen)) {
-                [NSMenu setMenuBarVisible:YES];
-            }
-        });
-        class_replaceMethod(listener, selector, wrapper, method_getTypeEncoding(method));
-    }
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Office toolbar: %s", result.c_str());
+    return result;
 }
 
 // The stream window must keep keyboard focus: Session only forwards input while
@@ -532,17 +553,7 @@ public:
         [center addObserver:target selector:@selector(windowFullscreenChanged:)
             name:NSWindowDidExitFullScreenNotification object:parent];
         officeToolbarWindows().insert(parent);
-        officeWrapFullscreenListener();
-        if (parent.styleMask & NSWindowStyleMaskFullScreen) {
-            // Reconnects and fullscreen starts attach the toolbar inside an
-            // existing Space, after its presentation options were chosen.
-            const NSApplicationPresentationOptions current = NSApp.presentationOptions;
-            const NSApplicationPresentationOptions wanted = officeFullscreenOptions(current);
-            if (wanted != current) {
-                @try { NSApp.presentationOptions = wanted; } @catch (NSException* exception) { (void)exception; }
-            }
-            [NSMenu setMenuBarVisible:YES];
-        }
+        officeWrapFullscreenListener(parent);
         setStatus("分辨率切换会短暂重连");
     }
     ~MacToolbar() override {

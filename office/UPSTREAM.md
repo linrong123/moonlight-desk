@@ -10,7 +10,7 @@
 | `app/office/officestate.*` | 每主机偏好、已认证 serverinfo、幂等光标请求及有界队列；不能 HTTP 降级 |
 | `app/office/sessionhooks.cpp` | Session 小适配点，鼠标与分辨率应用、恢复实例创建 |
 | `app/office/sessionpreferences.cpp` | 私有设置快照；新增上游非 Q_PROPERTY 字段需人工检查 |
-| `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI。全屏自动隐藏在运行时包装 SDL2 `Cocoa_WindowListener` 的 `window:willUseFullScreenPresentationOptions:`、`windowDidEnterFullScreen:`、`windowDidBecomeKey:`（只作用于已登记的办公窗口，先调原实现）；升级 SDL 时须复核这三个方法仍存在且行为未变（`src/video/cocoa/SDL_cocoawindow.m`） |
+| `app/office/toolbar*` | Mac 原生工具栏；串流运行于 SDL 循环，不能依赖暂停中的 Qt Quick UI。全屏自动隐藏在运行时包装 SDL 窗口 delegate 的实际类（`object_getClass(window.delegate)`，当前为 sdl2-compat/SDL3 的 `SDL3Cocoa_WindowListener`，会话日志 `Office toolbar: fullscreen auto-hide ...` 记录类名与已包装方法）的 `window:willUseFullScreenPresentationOptions:`、`windowDidEnterFullScreen:`、`windowDidBecomeKey:`（只作用于已登记的办公窗口，先调原实现）；升级 SDL 时须复核这三个方法仍存在且行为未变（SDL3 `src/video/cocoa/SDL_cocoawindow.m`），并看会话日志确认不是 “not installed” |
 | `app/office/videostats.*` | 解码统计样本、中文摘要/详情、解码线程→主线程最新样本通道（互斥 + 原子标志）；`copyVideoStats` 按 `VIDEO_STATS` 字段名复制，上游增删字段时同步 |
 | `app/streaming/video/ffmpeg.cpp` | 办公统计适配点：仅 `Session::get()->officeEnabled()` 时在统计窗口滚动处发布样本（双窗口合计、解码尺寸、编码、`m_BwTracker` 平均/峰值码率）；上游叠加统计分支不变 |
 | `app/office/displayscale.*` / `backend/nvhttp.*` | Windows DPI严格解析和配对HTTPS GET/POST；仅扩展省略GameStream身份query；无HTTP降级 |

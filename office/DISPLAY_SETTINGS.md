@@ -11,7 +11,7 @@
 
 ### 全屏实现说明
 
-SDL2 的 `Cocoa_WindowListener` 在全屏（FULLSCREEN_DESKTOP 走 Spaces）时返回 `FullScreen|HideDock|HideMenuBar`，并在进入全屏/获得焦点时调用 `[NSMenu setMenuBarVisible:NO]`，工具栏因此一直隐藏。办公版不改 SDL 源码，只对已登记的办公会话窗口在运行时包装这三个委托方法（`class_replaceMethod`，先调用原实现）：把 `HideMenuBar` 换成 `AutoHideMenuBar`，补 `AutoHideDock` 和 `AutoHideToolbar`（AppKit 要求 AutoHideToolbar 搭配 FullScreen 与 AutoHideMenuBar，否则抛异常），并在原实现隐藏菜单栏后恢复 `setMenuBarVisible:YES` 交给系统自动隐藏。未登记的窗口（原版 Moonlight 会话、测试窗口）原样走 SDL 逻辑；退出全屏后系统恢复普通外观。工具栏已经处在全屏空间时创建（如重连），直接设置当前 presentationOptions。用户用绿色按钮切换后 SDL 标志可能过期，工具栏“全屏”按钮在原生全屏状态与 SDL 标志不一致时改用 `toggleFullScreen:` 退出。
+SDL 窗口委托（delegate 的实际类，当前为 `SDL3Cocoa_WindowListener`：sdl2-compat 转发到 SDL3，类名随 SDL 构建变化，所以不写死类名，取 `object_getClass(window.delegate)`）在全屏（FULLSCREEN_DESKTOP 走 Spaces）时返回 `FullScreen|HideDock|HideMenuBar`，并在进入全屏/获得焦点时调用 `[NSMenu setMenuBarVisible:NO]`，工具栏因此一直隐藏。办公版不改 SDL 源码，只对已登记的办公会话窗口在运行时包装这三个委托方法（`class_replaceMethod`，先调用原实现；每个类只包装一次，只包装该类确实实现的方法，结果——类名与已包装的方法，或未安装原因——每次创建工具栏都写一行会话日志 `Office toolbar: fullscreen auto-hide ...`）：把 `HideMenuBar` 换成 `AutoHideMenuBar`，补 `AutoHideDock` 和 `AutoHideToolbar`（AppKit 要求 AutoHideToolbar 搭配 FullScreen 与 AutoHideMenuBar，否则抛异常），并在原实现隐藏菜单栏后恢复 `setMenuBarVisible:YES` 交给系统自动隐藏。未登记的窗口（原版 Moonlight 会话、测试窗口）原样走 SDL 逻辑；退出全屏后系统恢复普通外观。展示选项只有在委托的 `willUseFullScreenPresentationOptions` 中返回才生效，进入全屏后再设置 `NSApp.presentationOptions` 无效（实测仍为 `0x400`），所以不再在“工具栏创建时已处于全屏”分支里补设。用户用绿色按钮切换后 SDL 标志可能过期，工具栏“全屏”按钮在原生全屏状态与 SDL 标志不一致时改用 `toggleFullScreen:` 退出。
 
 确认窗口出现时释放远端按键并暂停键鼠转发，关闭时丢弃本地对话框积压事件后恢复；断开或销毁后的迟到确认不能重新启动会话。
 

@@ -11,6 +11,28 @@ static int subtitleWrites;
 @implementation HiddenStatusWindow
 - (void)setSubtitle:(NSString*)value { ++subtitleWrites; [super setSubtitle:value]; }
 @end
+// Stand-ins for SDL's window delegate: the wrapper must land on the delegate's
+// actual class whatever its name, and leave unrelated classes alone.
+static int fakeEnterCalls;
+@interface FakeSdlListener : NSObject <NSWindowDelegate>
+@end
+@implementation FakeSdlListener
+- (NSApplicationPresentationOptions)window:(NSWindow*)window willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)options {
+    (void)window; return options;
+}
+- (void)windowDidEnterFullScreen:(NSNotification*)notification { (void)notification; ++fakeEnterCalls; }
+@end
+@interface OtherSdlListener : FakeSdlListener
+@end
+@implementation OtherSdlListener
+- (NSApplicationPresentationOptions)window:(NSWindow*)window willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)options {
+    (void)window; return options;
+}
+@end
+@interface EmptyListener : NSObject <NSWindowDelegate>
+@end
+@implementation EmptyListener
+@end
 static void (^pendingCompletion)(NSModalResponse);
 @interface NSAlert (HiddenToolbarCheck)
 - (void)hiddenBegin:(NSWindow*)window completionHandler:(void (^)(NSModalResponse))completion;
@@ -37,10 +59,39 @@ int main() { @autoreleasepool {
     window.releasedWhenClosed = NO;
     NSView* originalContent = window.contentView;
     const NSRect initialLayout = window.contentLayoutRect;
+    using O = NSApplicationPresentationOptions;
+    const O sdlDesktop = NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+    const O autoHide = NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock |
+        NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideToolbar;
+    // A delegate without the wrapped methods: nothing is added, a log line still says so.
+    EmptyListener* empty = [EmptyListener new];
+    window.delegate = empty;
+    assert(officeWrapFullscreenListener(window).find("not installed: EmptyListener") != std::string::npos);
+    assert(!class_getInstanceMethod(EmptyListener.class, @selector(windowDidBecomeKey:)));
+    FakeSdlListener* listener = [FakeSdlListener new];
+    window.delegate = listener;
+    const SEL optionsSelector = @selector(window:willUseFullScreenPresentationOptions:);
+    const IMP fakeOriginal = class_getMethodImplementation(FakeSdlListener.class, optionsSelector);
+    const IMP otherOriginal = class_getMethodImplementation(OtherSdlListener.class, optionsSelector);
     std::vector<std::tuple<office::Action,int,int>> events;
     auto toolbar = std::make_unique<office::MacToolbar>(window,1920,1080,office::MouseMode::Local,
         [&](office::Action a,int x,int y){events.emplace_back(a,x,y);},true);
     auto target = (OfficeToolbarTarget*)window.toolbar.delegate;
+    // The toolbar wrapped the delegate's actual class, only its implemented methods.
+    const IMP fakeWrapped = class_getMethodImplementation(FakeSdlListener.class, optionsSelector);
+    assert(fakeWrapped != fakeOriginal);
+    assert(class_getMethodImplementation(OtherSdlListener.class, optionsSelector) == otherOriginal);
+    assert(!class_getInstanceMethod(FakeSdlListener.class, @selector(windowDidBecomeKey:)));
+    assert([listener window:window willUseFullScreenPresentationOptions:sdlDesktop] == autoHide);
+    NSWindow* unregistered = [[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,10,10)
+        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:YES];
+    unregistered.releasedWhenClosed = NO;
+    assert([listener window:unregistered willUseFullScreenPresentationOptions:sdlDesktop] == sdlDesktop);
+    [listener windowDidEnterFullScreen:[NSNotification notificationWithName:NSWindowDidEnterFullScreenNotification object:window]];
+    assert(fakeEnterCalls == 1); // original runs first; not fullscreen, so the menu bar is untouched
+    const std::string logged = officeWrapFullscreenListener(window);
+    assert(logged.find("wrapped FakeSdlListener: window:willUseFullScreenPresentationOptions: windowDidEnterFullScreen:") != std::string::npos);
+    assert(class_getMethodImplementation(FakeSdlListener.class, optionsSelector) == fakeWrapped); // wrapped once per class
     assert(window.toolbar && !window.visible && window.childWindows.count == 0);
     assert(window.contentView == originalContent && originalContent.subviews.count == 0);
     assert(!(window.styleMask & NSWindowStyleMaskFullSizeContentView));
@@ -83,10 +134,7 @@ int main() { @autoreleasepool {
     assert([target->fullscreenButton.title isEqualToString:@"全屏"] && [fullscreenOverflow.title isEqualToString:@"全屏"]);
     // Spaces fullscreen: SDL's hidden menu bar becomes auto-hide with the toolbar;
     // only valid AppKit combinations are produced.
-    using O = NSApplicationPresentationOptions;
-    const O sdlDesktop = NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
-    assert(officeFullscreenOptions(sdlDesktop) == (NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock |
-        NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideToolbar));
+    assert(officeFullscreenOptions(sdlDesktop) == autoHide);
     const O proposed = NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideDock;
     assert(officeFullscreenOptions(proposed) == (proposed | NSApplicationPresentationAutoHideToolbar));
     assert(officeFullscreenOptions(NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar) ==
@@ -152,6 +200,10 @@ int main() { @autoreleasepool {
     target = (OfficeToolbarTarget*)window.toolbar.delegate;
     [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
     assert(!pendingCompletion && !toolbar);
+    assert(class_getMethodImplementation(FakeSdlListener.class, optionsSelector) == fakeWrapped);
+    window.delegate = nil;
     [window close]; [window release];
-    puts("PASS: hidden native toolbar, unchanged contentView, no child windows, cached DPI controls, popup/overflow check marks, fullscreen label and auto-hide options, statistics summary/panel, resolution cancel/confirm, disconnect/teardown callback safety; no visible UI");
+    [unregistered close]; [unregistered release];
+    [listener release]; [empty release];
+    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, cached DPI controls, popup/overflow check marks, fullscreen label and auto-hide options, statistics summary/panel, resolution cancel/confirm, disconnect/teardown callback safety; no visible UI");
 } }
