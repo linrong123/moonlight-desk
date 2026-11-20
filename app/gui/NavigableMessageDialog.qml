@@ -12,8 +12,18 @@ NavigableDialog {
     property string helpText
     property string helpUrl : "https://github.com/moonlight-stream/moonlight-docs/wiki/Troubleshooting"
     property string helpTextSeparator : " "
+    // Office: Desk UI drops the white icon and uses Chinese button texts.
+    readonly property bool deskUi: typeof window !== "undefined" && window.deskUi === true
 
     onOpened: {
+        if (deskUi) {
+            var texts = [[Dialog.Ok, "确定"], [Dialog.Yes, "确定"], [Dialog.No, "取消"],
+                         [Dialog.Cancel, "取消"], [Dialog.Help, "帮助"]]
+            for (var i = 0; i < texts.length; ++i) {
+                var button = dialogButtonBox.standardButton(texts[i][0])
+                if (button) button.text = texts[i][1]
+            }
+        }
         // Force keyboard focus on the label so keyboard navigation works
         if (dialogButtonBox.count > 0) {
             dialogButtonBox.itemAt(dialogButtonBox.count - 1).forceActiveFocus(Qt.TabFocus)
@@ -39,7 +49,7 @@ NavigableDialog {
                 width: 50
                 height: 50
             }
-            visible: !showSpinner
+            visible: !showSpinner && !dialog.deskUi
         }
 
         Label {

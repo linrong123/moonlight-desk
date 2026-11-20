@@ -4,6 +4,13 @@
         <file>office/ApprovalWaiting.qml</file>
         <file>office/DeskHome.qml</file>
         <file>office/DeskView.qml</file>
+        <file>office/DeskButton.qml</file>
+        <file>office/DeskDialog.qml</file>
+        <file>office/DeskConnector.qml</file>
+        <file>office/DeskSettings.qml</file>
+        <file>office/DeskProgress.qml</file>
+        <file>office/desklogic.js</file>
+        <file>office/deskstyle.js</file>
         <file>gui/main.qml</file>
         <file>gui/PcView.qml</file>
         <file>gui/AppView.qml</file>

@@ -2,6 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 2.2
 
 import ComputerManager 1.0
+import "../office" as Office
 import Session 1.0
 
 Item {
@@ -54,9 +55,19 @@ Item {
         ComputerManager.quitAppCompleted.disconnect(quitAppCompleted)
     }
 
+    // Desk UI: light progress page over the (hidden) upstream spinner/label.
+    Office.DeskProgress {
+        id: deskProgress
+        anchors.fill: parent
+        visible: typeof window !== "undefined" && window.deskUi === true
+        stage: stageLabel.text
+        fallback: "正在退出…"
+    }
+
     Row {
         anchors.centerIn: parent
         spacing: 5
+        opacity: deskProgress.visible ? 0 : 1
 
         BusyIndicator {
             id: stageSpinner

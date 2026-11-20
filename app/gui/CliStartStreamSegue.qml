@@ -2,6 +2,7 @@ import QtQuick 2.0
 import QtQuick.Controls 2.2
 
 import ComputerManager 1.0
+import "../office" as Office
 
 Item {
     property bool launched: false
@@ -54,9 +55,19 @@ Item {
         }
     }
 
+    // Desk UI: light progress page over the (hidden) upstream spinner/label.
+    Office.DeskProgress {
+        id: deskProgress
+        anchors.fill: parent
+        visible: typeof window !== "undefined" && window.deskUi === true
+        stage: stageLabel.text
+        fallback: "正在连接远程桌面…"
+    }
+
     Row {
         anchors.centerIn: parent
         spacing: 5
+        opacity: deskProgress.visible ? 0 : 1
 
         BusyIndicator {
             id: stageSpinner
@@ -83,7 +94,9 @@ Item {
 
     NavigableMessageDialog {
         id: quitAppDialog
-        text:qsTr("Are you sure you want to quit %1? Any unsaved progress will be lost.").arg(appName)
+        text: (typeof window !== "undefined" && window.deskUi === true)
+              ? qsTr("被控电脑上正在运行“%1”，需要先关闭它才能进入桌面。关闭吗？未保存的内容会丢失。").arg(appName)
+              : qsTr("Are you sure you want to quit %1? Any unsaved progress will be lost.").arg(appName)
         standardButtons: Dialog.Yes | Dialog.No
         property string appName : ""
 

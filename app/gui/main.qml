@@ -9,6 +9,7 @@ import AutoUpdateChecker 1.0
 import StreamingPreferences 1.0
 import SystemProperties 1.0
 import SdlGamepadKeyNavigation 1.0
+import "../office" as Office
 
 ApplicationWindow {
     property bool pollingActive: false
@@ -24,11 +25,37 @@ ApplicationWindow {
     minimumWidth: deskManagerMode ? 900 : 0
     minimumHeight: deskManagerMode ? 600 : 0
     property bool deskHomeVisible: deskManagerMode && stackView.depth === 1
-    Material.theme: deskHomeVisible ? Material.Light : Material.Dark
+    // Office: Desk UI (manager and per-desktop session process). Only the
+    // upstream advanced SettingsView keeps the dark theme and the toolbar.
+    property bool deskUi: deskManagerMode || deskSessionMode
+    readonly property bool deskAdvancedPage: stackView.currentItem !== null && stackView.currentItem instanceof SettingsView
+    readonly property bool deskToolBarHidden: deskUi && !deskAdvancedPage
+    Material.theme: (deskUi && !deskAdvancedPage) ? Material.Light : Material.Dark
+    onDeskToolBarHiddenChanged: toolBar.visible = !deskToolBarHidden
 
-    function openDeskSettings() { navigateTo("qrc:/gui/SettingsView.qml", SettingsView) }
-    function openDeskAddPc() { addPcDialog.open() }
-    function requestDeskQuit() { quitConfirmationDialog.open() }
+    function openDeskSettings() {
+        var existing = stackView.find(function(item) { return item.deskSettingsPage === true })
+        if (existing !== null) {
+            stackView.pop(existing)
+            return
+        }
+        SystemProperties.refreshDisplays()
+        var screen = SystemProperties.getNativeResolution(0)
+        var page = stackView.push("qrc:/office/DeskSettings.qml", {
+            "prefs": StreamingPreferences,
+            "nativeWidth": screen.width,
+            "nativeHeight": screen.height,
+            "versionString": SystemProperties.versionString,
+            "showWindowMode": SystemProperties.hasDesktopEnvironment,
+            "windowModeEnabled": !SystemProperties.rendererAlwaysFullScreen
+        })
+        if (page)
+            page.advancedRequested.connect(function() { navigateTo("qrc:/gui/SettingsView.qml", SettingsView) })
+    }
+    function requestDeskQuit() {
+        if (deskManagerMode) deskQuitDialog.open()
+        else quitConfirmationDialog.open()
+    }
     Connections {
         target: DeskSessions
         function onShowManager() { window.showNormal(); window.raise(); window.requestActivate() }
@@ -52,7 +79,7 @@ ApplicationWindow {
         // Override the background color to Material 2 colors for Qt 6.5+
         // in order to improve contrast between GFE's placeholder box art
         // and the background of the app grid.
-        if (!deskHomeVisible && SystemProperties.usesMaterial3Theme) {
+        if (!deskUi && SystemProperties.usesMaterial3Theme) {
             Material.background = "#303030"
         }
 
@@ -155,7 +182,7 @@ ApplicationWindow {
                 goBack()
             }
             else {
-                quitConfirmationDialog.open()
+                requestDeskQuit()
             }
         }
 
@@ -164,12 +191,12 @@ ApplicationWindow {
                 goBack()
             }
             else {
-                quitConfirmationDialog.open()
+                requestDeskQuit()
             }
         }
 
         Keys.onMenuPressed: {
-            if (toolBar.visible)
+            if (toolBar.visible || deskManagerMode)
                 settingsButton.clicked()
         }
 
@@ -177,7 +204,7 @@ ApplicationWindow {
         // SdlGamepadKeyNavigation object tell us to show settings
         // when Menu is consumed by a focused control.
         Keys.onHangupPressed: {
-            if (toolBar.visible)
+            if (toolBar.visible || deskManagerMode)
                 settingsButton.clicked()
         }
     }
@@ -262,7 +289,9 @@ ApplicationWindow {
 
     header: ToolBar {
         id: toolBar
-        visible: !window.deskHomeVisible
+        visible: !window.deskToolBarHidden
+        // Segues set toolBar.visible imperatively; Desk pages keep it hidden.
+        onVisibleChanged: if (visible && window.deskToolBarHidden) visible = false
         // ApplicationWindow excludes invisible headers itself. A zero height
         // forces the upstream icon buttons into a repeated layout-polish loop.
         height: 60
@@ -456,7 +485,12 @@ ApplicationWindow {
 
                 iconSource:  "qrc:/res/settings.svg"
 
-                onClicked: navigateTo("qrc:/gui/SettingsView.qml", SettingsView)
+                onClicked: {
+                    if (!deskManagerMode)
+                        navigateTo("qrc:/gui/SettingsView.qml", SettingsView)
+                    else if (!window.deskAdvancedPage)
+                        openDeskSettings()
+                }
 
                 Keys.onDownPressed: {
                     stackView.currentItem.forceActiveFocus(Qt.TabFocus)
@@ -521,6 +555,22 @@ ApplicationWindow {
             if (deskManagerMode) DeskSessions.stopAll()
             Qt.quit()
         }
+    }
+
+    // Office: Desk manager quit confirmation (Escape/Back on the home page,
+    // the home "退出" button).
+    Office.DeskDialog {
+        id: deskQuitDialog
+        title: "退出 Moonlight Desk"
+        message: DeskSessions.count > 0 ? "退出会断开所有远程桌面，确定退出？" : "确定退出 Moonlight Desk？"
+        rejectText: "取消"
+        acceptText: "退出"
+        acceptKind: "danger"
+        onAccepted: {
+            DeskSessions.stopAll()
+            Qt.quit()
+        }
+        onClosed: stackView.forceActiveFocus()
     }
 
     // HACK: This belongs in StreamSegue but keeping a dialog around after the parent
