@@ -24,7 +24,10 @@ static int runPreview() {
             else toolbar->setStatus("本地操作已收到；此验证窗口不连接远程电脑");
         });
     if (!toolbar) return 3;
-    toolbar->setStatus("本地 UI 验证：检查菜单、分辨率确认、Windows缩放、全屏及断开；不代表远端设置生效");
+    // Sample text only: the preview has no stream, so nothing is measured.
+    toolbar->setStatistics("示例 · 延迟 12 ms · 60 帧/秒 · 18.5 Mbps",
+        "本地预览示例数据，未连接任何电脑\n视频：1920×1080 · 60.00 帧/秒 · HEVC\n码率：18.5 Mbps");
+    toolbar->setStatus("本地 UI 验证：检查菜单、分辨率确认、Windows缩放、全屏、统计浮窗及断开；不代表远端设置生效");
     while (running) {
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, 50) && event.type == SDL_QUIT) running = false;

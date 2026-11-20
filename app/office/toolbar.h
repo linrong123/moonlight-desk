@@ -11,6 +11,10 @@ public:
     virtual ~Toolbar() = default;
     virtual void setStatus(const char* text) = 0;
     virtual void setDisplayScales(const std::vector<int>& supported, int current, bool pending) = 0;
+    // Resident summary in the toolbar; details are the tooltip and panel text.
+    virtual void setStatistics(const char* summary, const char* details) = 0;
+    // Opens or closes the floating statistics panel without sending an Action.
+    virtual void setStatisticsVisible(bool visible) = 0;
 };
 std::unique_ptr<Toolbar> createToolbar(SDL_Window* window, int width, int height,
     MouseMode mode, std::function<void(Action, int, int)> action, bool hasDeviceManager = false);

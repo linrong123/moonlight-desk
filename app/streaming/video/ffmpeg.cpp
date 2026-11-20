@@ -2,6 +2,7 @@
 #include "ffmpeg.h"
 #include "utils.h"
 #include "streaming/session.h"
+#include "office/videostats.h"
 
 #include <h264_stream.h>
 
@@ -2121,15 +2122,34 @@ int FFmpegVideoDecoder::submitDecodeUnit(PDECODE_UNIT du)
     // Flip stats windows roughly every second
     if (LiGetMicroseconds() > m_ActiveWndVideoStats.measurementStartUs + 1000000) {
         // Update overlay stats if it's enabled
-        if (Session::get()->getOverlayManager().isOverlayEnabled(Overlay::OverlayDebug)) {
+        // Office adapter: office sessions also publish the same two-window stats to
+        // the native toolbar (app/office/videostats.*) instead of drawing on video.
+        const bool overlayStats = Session::get()->getOverlayManager().isOverlayEnabled(Overlay::OverlayDebug);
+        const bool officeStats = Session::get()->officeEnabled();
+        if (overlayStats || officeStats) {
             VIDEO_STATS lastTwoWndStats = {};
             addVideoStats(m_LastWndVideoStats, lastTwoWndStats);
             addVideoStats(m_ActiveWndVideoStats, lastTwoWndStats);
 
-            stringifyVideoStats(lastTwoWndStats,
-                                Session::get()->getOverlayManager().getOverlayText(Overlay::OverlayDebug),
-                                Session::get()->getOverlayManager().getOverlayMaxTextLength());
-            Session::get()->getOverlayManager().setOverlayTextUpdated(Overlay::OverlayDebug);
+            if (overlayStats) {
+                stringifyVideoStats(lastTwoWndStats,
+                                    Session::get()->getOverlayManager().getOverlayText(Overlay::OverlayDebug),
+                                    Session::get()->getOverlayManager().getOverlayMaxTextLength());
+                Session::get()->getOverlayManager().setOverlayTextUpdated(Overlay::OverlayDebug);
+            }
+            if (officeStats) {
+                office::VideoStatsSample sample;
+                office::copyVideoStats(lastTwoWndStats, sample);
+                if (m_VideoDecoderCtx != nullptr) {
+                    sample.width = m_VideoDecoderCtx->width;
+                    sample.height = m_VideoDecoderCtx->height;
+                }
+                sample.codec = office::videoCodecName(m_VideoFormat, LiGetCurrentHostDisplayHdrMode());
+                sample.averageMbps = m_BwTracker.GetAverageMbps();
+                sample.peakMbps = m_BwTracker.GetPeakMbps();
+                sample.bitrateWindowSeconds = m_BwTracker.GetWindowSeconds();
+                office::videoStatsChannel().publish(sample);
+            }
         }
 
         // Accumulate these values into the global stats

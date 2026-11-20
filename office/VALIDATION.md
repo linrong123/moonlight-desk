@@ -108,3 +108,19 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 修复：`StreamSegue.qml` 在结束时置 `deskFinished`；关闭决策抽成 `desklogic.js` 的 `windowCloseAction`，串流结束后允许关闭。`tst_desklogic.qml` 新增 `test_windowCloseAction`（含回归用例）。
 - 云端结果：提交 `5594b7f4`，Desk macOS run [44703132531](https://github.com/linrong123/moonlight-desk/actions/runs/44703132531) 通过（测试与 macOS arm64 打包成功）。
 - 实机验收：该构建安装到 Mac 主控端，连接 Windows 被控端后点 X 关闭，会话进程退出、卡片恢复“连接”，再次连接正常（2026-11-20 通过）。
+
+## 工具栏修正：下拉勾选、全屏文字、全屏自动隐藏、统计移出画面（2026-11-20，分支 `feat/desk-toolbar`）
+
+- 下拉菜单只勾选当前项：`validateMenuItem` 不再改写 NSPopUpButton 自己菜单项的状态，只设置溢出子菜单项。
+- “全屏”按钮与溢出菜单项按窗口实际状态显示“全屏”/“退出全屏”（含非 Spaces 独占全屏）；绿色按钮切换后 SDL 标志过期时，工具栏按钮改用原生 `toggleFullScreen:`。
+- Spaces 全屏时工具栏与菜单栏自动隐藏：运行时包装 SDL2 窗口委托（不改 SDL 源码），只作用于办公会话窗口，详见 [显示设置](DISPLAY_SETTINGS.md#全屏实现说明)。
+- 统计移出视频：工具栏常驻中文摘要 + 悬停详情；“统计”按钮切换不抢焦点的 HUD 浮窗；`ffmpeg.cpp` 仅办公会话发布样本，上游 Ctrl+Alt+Shift+S 叠加不变。
+- 自动测试：`tests/office/toolbar/check.mm` 新增勾选、全屏文字、presentationOptions 组合、摘要/浮窗（不能成为 key/main、FullScreenAuxiliary、开关事件、关闭事件）断言；新增 `office/tests/videostats_test.cpp`（中文摘要/详情、编码名称、跨线程最新样本通道），均接入 `office/macos/test.sh`。`videostats_test` 已在 Windows MSVC（`/std:c++17 /W4 /WX`）本地通过。
+
+### 待实机验收
+
+- 下拉菜单（鼠标、分辨率、缩放）及窄窗口溢出菜单只勾选当前项。
+- 绿色按钮、工具栏按钮、溢出菜单进入/退出全屏，按钮文字与实际状态一致；交替使用不卡在错误状态。
+- Spaces 全屏下工具栏与菜单栏默认隐藏，鼠标移到屏幕顶部出现、移开收起，Dock 不常驻；退出全屏恢复普通外观；全屏中重连后行为相同；原版 Moonlight 会话不受影响。
+- 统计摘要数值（延迟、帧率、码率）与上游叠加统计对照；浮窗每秒刷新、可拖动、可关闭，按钮状态同步；全屏空间中可见。
+- 浮窗打开时键盘鼠标仍转发到远端，点击浮窗后回到视频可恢复捕获；断开时浮窗随窗口消失。

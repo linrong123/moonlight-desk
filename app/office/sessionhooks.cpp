@@ -1,6 +1,7 @@
 #include "streaming/session.h"
 #include "connectconfirm.h"
 #include "sessionbridge.h"
+#include "videostats.h"
 
 #include <QThread>
 
@@ -129,10 +130,14 @@ void Session::officeStartUi() {
     if (!m_Office) return;
     m_Office->everConnected = true;
     m_Office->recovery.connected(office::monotonicMs());
+    // Never show a sample from the previous connection.
+    office::videoStatsChannel().clear();
     m_OfficeToolbar = office::createToolbar(m_Window, m_StreamConfig.width, m_StreamConfig.height,
         m_Office->mouseMode, [this](office::Action action, int first, int second) {
             officeAction(action, first, second);
         }, office::SessionBridge::isSessionProcess());
+    // The statistics panel stays open across reconnects of this session.
+    if (m_OfficeToolbar && m_Office->statisticsPanel) m_OfficeToolbar->setStatisticsVisible(true);
     // Sunshine may change the active display during launch/resume. Read DPI
     // only after the stream has started, not from the previous desktop layout.
     m_Office->queueDisplayScale();
@@ -142,6 +147,7 @@ void Session::officeStartUi() {
 void Session::officeStopUi() {
     m_OfficeRestoreCapture = false;
     m_OfficeToolbar.reset();
+    office::videoStatsChannel().clear();
 }
 
 void Session::officePollUi() {
@@ -172,6 +178,11 @@ void Session::officePollUi() {
         m_OfficeAppliedInput = static_cast<int>(effective);
     }
     if (!m_OfficeToolbar) return;
+    office::VideoStatsSample stats;
+    if (office::videoStatsChannel().take(stats)) {
+        m_OfficeToolbar->setStatistics(office::videoStatsSummary(stats).c_str(),
+            office::videoStatsDetails(stats).c_str());
+    }
     const auto scale = m_Office->displayScaleSnapshot();
     m_OfficeToolbar->setDisplayScales(scale.value.supported, scale.value.current, scale.pending);
     QString status;
@@ -239,8 +250,9 @@ void Session::officeAction(office::Action action, int first, int second) {
         toggleFullscreen();
         break;
     case office::Action::Statistics:
-        m_OverlayManager.setOverlayState(Overlay::OverlayDebug,
-            !m_OverlayManager.isOverlayEnabled(Overlay::OverlayDebug));
+        // The toolbar shows the panel itself; the video overlay stays untouched
+        // (upstream Ctrl+Alt+Shift+S still toggles it).
+        m_Office->statisticsPanel = first != 0;
         break;
     case office::Action::Disconnect:
         officeCancelRecovery();

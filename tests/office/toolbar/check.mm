@@ -61,6 +61,68 @@ int main() { @autoreleasepool {
     [target->scale selectItemAtIndex:3]; [target scaleChanged:target->scale];
     assert(events.back() == std::make_tuple(office::Action::DisplayScale,200,0));
     toolbar->setDisplayScales({},0,false); assert(!target->scale.enabled);
+    auto toolbarItem = [&](NSString* identifier) -> NSToolbarItem* {
+        for (NSToolbarItem* item in window.toolbar.items) if ([item.itemIdentifier isEqualToString:identifier]) return item;
+        return nil;
+    };
+    // Pop-up menus keep their own single check mark; only overflow choices are
+    // marked by validation (tag = index).
+    assert(target->mouse.indexOfSelectedItem == 0);
+    for (NSMenuItem* item in target->mouse.menu.itemArray) assert([target validateMenuItem:item]);
+    assert([target->mouse itemAtIndex:0].state == NSControlStateValueOn);
+    assert([target->mouse itemAtIndex:1].state == NSControlStateValueOff && [target->mouse itemAtIndex:2].state == NSControlStateValueOff);
+    NSMenu* mouseOverflow = toolbarItem(@"office.mouse").menuFormRepresentation.submenu;
+    [target->mouse selectItemAtIndex:2];
+    for (NSMenuItem* item in mouseOverflow.itemArray) [target validateMenuItem:item];
+    assert(mouseOverflow.itemArray[2].state == NSControlStateValueOn && mouseOverflow.itemArray[0].state == NSControlStateValueOff);
+    assert([target->mouse itemAtIndex:0].state == NSControlStateValueOff && [target->mouse itemAtIndex:2].state == NSControlStateValueOn);
+    [target->mouse selectItemAtIndex:0];
+    // The fullscreen label follows the real window state.
+    NSMenuItem* fullscreenOverflow = toolbarItem(@"office.fullscreen").menuFormRepresentation;
+    [target validateMenuItem:fullscreenOverflow];
+    assert([target->fullscreenButton.title isEqualToString:@"全屏"] && [fullscreenOverflow.title isEqualToString:@"全屏"]);
+    // Spaces fullscreen: SDL's hidden menu bar becomes auto-hide with the toolbar;
+    // only valid AppKit combinations are produced.
+    using O = NSApplicationPresentationOptions;
+    const O sdlDesktop = NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+    assert(officeFullscreenOptions(sdlDesktop) == (NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock |
+        NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideToolbar));
+    const O proposed = NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideDock;
+    assert(officeFullscreenOptions(proposed) == (proposed | NSApplicationPresentationAutoHideToolbar));
+    assert(officeFullscreenOptions(NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar) ==
+        (NSApplicationPresentationFullScreen | NSApplicationPresentationAutoHideMenuBar | NSApplicationPresentationAutoHideDock |
+         NSApplicationPresentationAutoHideToolbar));
+    assert(officeFullscreenOptions(NSApplicationPresentationFullScreen) == NSApplicationPresentationFullScreen);
+    const O windowed = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+    assert(officeFullscreenOptions(windowed) == windowed);
+    // Resident statistics summary; details are the tooltip.
+    assert(toolbarItem(@"office.summary").view == target->summary);
+    toolbar->setStatistics("延迟 12 ms · 60 帧/秒 · 18.5 Mbps", "视频：1920×1080\n码率：18.5 Mbps");
+    assert([target->summary.stringValue isEqualToString:@"延迟 12 ms · 60 帧/秒 · 18.5 Mbps"]);
+    assert([target->summary.toolTip isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
+    // The statistics button toggles a non-activating panel that never takes the
+    // stream window's keyboard focus and joins the fullscreen Space.
+    const size_t beforeStats = events.size();
+    [target statistics:nil];
+    assert(events.size() == beforeStats + 1 && events.back() == std::make_tuple(office::Action::Statistics,1,0));
+    assert(target->statisticsButton.state == NSControlStateValueOn && target->panel);
+    assert(![target->panel canBecomeKeyWindow] && ![target->panel canBecomeMainWindow]);
+    assert(target->panel.collectionBehavior & NSWindowCollectionBehaviorFullScreenAuxiliary);
+    assert(!target->panel.visible); // the stream window is hidden in this check
+    assert([target->panelText.stringValue isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
+    NSMenuItem* statisticsOverflow = toolbarItem(@"office.statistics").menuFormRepresentation;
+    [target validateMenuItem:statisticsOverflow];
+    assert(statisticsOverflow.state == NSControlStateValueOn);
+    [target statistics:nil];
+    assert(events.back() == std::make_tuple(office::Action::Statistics,0,0));
+    assert(target->statisticsButton.state == NSControlStateValueOff);
+    toolbar->setStatisticsVisible(true); // restored after reconnect: no event
+    assert(events.size() == beforeStats + 2 && target->statisticsButton.state == NSControlStateValueOn);
+    [target windowWillClose:[NSNotification notificationWithName:NSWindowWillCloseNotification object:target->panel]];
+    assert(events.back() == std::make_tuple(office::Action::Statistics,0,0) && target->statisticsButton.state == NSControlStateValueOff);
+    toolbar->setStatistics("", "");
+    assert([target->summary.stringValue isEqualToString:@"统计读取中"]);
+    assert(window.childWindows.count == 0 && originalContent.subviews.count == 0);
     const size_t before = events.size();
     [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
     assert(events.size()==before+1 && std::get<0>(events.back())==office::Action::InputPause && std::get<1>(events.back())==1);
@@ -91,5 +153,5 @@ int main() { @autoreleasepool {
     [target->resolution selectItemAtIndex:3]; [target resolutionChanged:target->resolution];
     assert(!pendingCompletion && !toolbar);
     [window close]; [window release];
-    puts("PASS: hidden native toolbar, unchanged contentView, no child windows, cached DPI controls, resolution cancel/confirm, disconnect/teardown callback safety; no visible UI");
+    puts("PASS: hidden native toolbar, unchanged contentView, no child windows, cached DPI controls, popup/overflow check marks, fullscreen label and auto-hide options, statistics summary/panel, resolution cancel/confirm, disconnect/teardown callback safety; no visible UI");
 } }

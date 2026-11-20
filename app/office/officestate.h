@@ -33,6 +33,8 @@ struct State {
     QSslCertificate peerCertificate;
     bool trueUid = true;
     MouseMode mouseMode = MouseMode::Local;
+    // UI thread only: statistics panel stays open across reconnects.
+    bool statisticsPanel = false;
     QThreadPool cursorQueue;
     std::atomic_bool displayScaleSupported{false};
     // CONNECTION.md §2: host asks its user before every launch/resume.
