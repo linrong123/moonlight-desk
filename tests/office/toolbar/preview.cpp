@@ -29,7 +29,7 @@ static int runPreview() {
     // Sample text only: the preview has no stream, so nothing is measured.
     toolbar->setStatistics("示例 · 延迟 12 ms · 60 帧/秒 · 18.5 Mbps",
         "本地预览示例数据，未连接任何电脑\n视频：1920×1080 · 60.00 帧/秒 · HEVC\n码率：18.5 Mbps");
-    toolbar->setStatus("本地 UI 验证：检查控制中心菜单（分辨率确认、画面缩放、鼠标模式、暂停输入、连接信息、全屏）及断开；不代表远端设置生效");
+    toolbar->setStatus("本地 UI 验证：检查左侧连接信息胶囊、中间图标（显示：分辨率确认与画面缩放；鼠标与键盘：鼠标模式与暂停输入；全屏）及右侧断开；不代表远端设置生效");
     while (running) {
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, 50) && event.type == SDL_QUIT) running = false;

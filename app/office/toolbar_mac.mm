@@ -124,19 +124,61 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     return text;
 }
 
+// First available SF Symbol of the names (newer names first); nil before macOS 11.
+static NSImage* officeSymbol(NSArray<NSString*>* names, NSString* description) {
+    if (@available(macOS 11.0, *)) {
+        for (NSString* name in names) {
+            NSImage* image = [NSImage imageWithSystemSymbolName:name accessibilityDescription:description];
+            if (image) return image;
+        }
+    }
+    return nil;
+}
+
+// Truncates text with an ellipsis so that it fits the width with the attributes.
+static NSString* officeFitted(NSString* text, NSDictionary* attributes, CGFloat width) {
+    if ([text sizeWithAttributes:attributes].width <= width) return text;
+    NSString* kept = text;
+    while (kept.length) {
+        kept = [kept substringToIndex:[kept rangeOfComposedCharacterSequenceAtIndex:kept.length - 1].location];
+        NSString* shown = [kept stringByAppendingString:@"…"];
+        if ([shown sizeWithAttributes:attributes].width <= width) return shown;
+    }
+    return @"…";
+}
+
+// Toolbar layout: the connection info capsule on the left, the icon group
+// (display, mouse and keyboard, fullscreen, devices) in the center and the red
+// disconnect button on the far right, flexible spaces in between.
+static NSString* const officeInfoId = @"office.info";
+static NSString* const officeStatusId = @"office.status";
+static NSString* const officeDisplayId = @"office.display";
+static NSString* const officeInputId = @"office.input";
+static NSString* const officeFullscreenId = @"office.fullscreen";
+static NSString* const officeDevicesId = @"office.devices";
+static NSString* const officeDisconnectId = @"office.disconnect";
+// Room for the longest usual summary, so per-second updates never relayout.
+static NSString* const officeSummarySample = @"延迟 999 ms · 120 帧/秒 · 99.9 Mbps";
+static const CGFloat officeDeviceNameWidth = 200;
+
 @interface OfficeToolbarTarget : NSObject <NSToolbarDelegate, NSMenuItemValidation, NSMenuDelegate, NSWindowDelegate> {
 @public
     std::function<void(office::Action, int, int)> action;
     NSWindow* streamWindow;
     SDL_Window* sdlWindow;
-    // Toolbar: device name and statistics summary on the left, the control
-    // center menu and the disconnect button on the right.
-    NSTextField* device;
-    NSTextField* summary;
+    // Left: one clickable info capsule (status dot, device name, summary, ⓘ)
+    // that toggles the connection info panel.
+    NSButton* infoButton;
+    NSLayoutConstraint* infoWidth;
+    NSString* deviceName;
+    NSString* summaryLine;
     NSTextField* status;
-    NSButton* controlButton;
     NSButton* disconnectButton;
-    NSMenu* controlMenu;
+    // Center: the menus of the 显示 and 鼠标与键盘 icons, and the fullscreen icon.
+    NSMenu* displayMenu;
+    NSMenu* inputMenu;
+    NSMutableArray* builtMenus;  // every menu built here, overflow copies included
+    NSToolbarItem* fullscreenItem;
     NSString* details;
     OfficeStatisticsPanel* panel;
     NSTextField* panelText;
@@ -164,19 +206,22 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
 - (void)statistics:(id)sender;
 - (void)disconnect:(id)sender;
 - (void)devices:(id)sender;
-- (void)showControlCenter:(id)sender;
-- (NSMenu*)buildControlMenu;
+- (NSMenu*)buildDisplayMenu;
+- (NSMenu*)buildInputMenu;
 - (void)invalidate;
 - (BOOL)streamFullscreen;
 - (NSString*)fullscreenTitle;
 - (void)poll;
 - (void)setPanelVisible:(BOOL)visible;
 - (void)setSummary:(NSString*)line details:(NSString*)full;
+- (void)setDeviceName:(NSString*)name;
 @end
 
 @implementation OfficeToolbarTarget
 - (void)send:(office::Action)kind first:(int)first second:(int)second {
-    // The callback can destroy MacToolbar (and clear action) synchronously.
+    // The callback can destroy MacToolbar (and clear action) synchronously; keep
+    // this target and its menus alive until the current event finishes.
+    [[self retain] autorelease];
     auto callback = action;
     if (!invalidated && callback) callback(kind, first, second);
 }
@@ -236,7 +281,23 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     return sdlWindow && (SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN) && !(style & NSWindowStyleMaskTitled);
 }
 - (NSString*)fullscreenTitle { return fullscreenShown ? @"退出全屏" : @"进入全屏"; }
-- (void)refreshFullscreen { fullscreenShown = [self streamFullscreen]; }
+// The fullscreen icon, tooltip and overflow title follow the window state.
+- (void)decorateFullscreenItem {
+    if (!fullscreenItem) return;
+    NSString* title = [self fullscreenTitle];
+    NSImage* image = officeSymbol(fullscreenShown ? @[@"arrow.down.right.and.arrow.up.left"]
+        : @[@"arrow.up.left.and.arrow.down.right"], title);
+    if (image) fullscreenItem.image = image;
+    else if (@available(macOS 10.15, *)) fullscreenItem.title = title;
+    fullscreenItem.toolTip = [NSString stringWithFormat:@"%@（%@）", title, officeFullscreenShortcut];
+    fullscreenItem.menuFormRepresentation.attributedTitle = officeMenuTitle(title, officeFullscreenShortcut, NO, nil);
+}
+- (void)refreshFullscreen {
+    const BOOL shown = [self streamFullscreen];
+    if (shown == fullscreenShown) return;
+    fullscreenShown = shown;
+    [self decorateFullscreenItem];
+}
 - (void)windowFullscreenChanged:(NSNotification*)notification { (void)notification; [self poll]; }
 - (void)fullscreen:(id)sender {
     (void)sender;
@@ -263,22 +324,12 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
 - (void)disconnect:(id)sender {
     (void)sender;
     // Do not resume input when disconnecting while a confirmation is pending.
+    [[self retain] autorelease];
     auto callback = action;
     [self invalidate];
     if (callback) callback(office::Action::Disconnect, 0, 0);
 }
 - (void)devices:(id)sender { (void)sender; [self send:office::Action::Devices first:0 second:0]; }
-- (void)showControlCenter:(id)sender {
-    if (invalidated) return;
-    NSView* anchor = [sender isKindOfClass:[NSView class]] ? sender : controlButton;
-    if (!anchor.window) return;
-    const NSRect bounds = anchor.bounds;
-    const NSPoint below = NSMakePoint(NSMinX(bounds), anchor.isFlipped ? NSMaxY(bounds) + 4 : NSMinY(bounds) - 4);
-    // Menu actions run inside the tracking loop and may destroy the toolbar.
-    [self retain];
-    [controlMenu popUpMenuPositioningItem:nil atLocation:below inView:anchor];
-    [self release];
-}
 - (NSMenuItem*)itemTitled:(NSString*)title action:(SEL)selector tag:(NSInteger)tag {
     NSMenuItem* item = [[[NSMenuItem alloc] initWithTitle:title action:selector keyEquivalent:@""] autorelease];
     item.target = self;
@@ -290,6 +341,11 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     submenu.title = title;
     item.submenu = submenu;
     return item;
+}
+- (NSMenu*)newMenu {
+    NSMenu* menu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+    [builtMenus addObject:menu];
+    return menu;
 }
 // Rebuilt whenever the scale submenu opens: the host reports its choices late.
 - (void)fillScaleMenu:(NSMenu*)menu {
@@ -311,22 +367,27 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
 - (void)menuNeedsUpdate:(NSMenu*)menu {
     if ([menu.title isEqualToString:@"画面缩放"]) [self fillScaleMenu:menu];
 }
-- (NSMenu*)buildControlMenu {
-    NSMenu* menu = [[[NSMenu alloc] initWithTitle:@"控制中心"] autorelease];
-    NSMenu* display = [[[NSMenu alloc] initWithTitle:@""] autorelease];
-    NSMenu* resolutionMenu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+// 显示: 分辨率 › and 画面缩放 ›.
+- (NSMenu*)buildDisplayMenu {
+    NSMenu* display = [self newMenu];
+    display.title = @"显示";
+    NSMenu* resolutionMenu = [self newMenu];
     for (NSUInteger i = 0; i < resolutions.count; ++i) {
         NSMenuItem* item = [self itemTitled:resolutionTitles[i] action:@selector(resolutionChanged:) tag:(NSInteger)i];
         item.toolTip = @"修改远端桌面分辨率；确认后会短暂重连，Windows不会注销";
         [resolutionMenu addItem:item];
     }
     [display addItem:[self submenuTitled:@"分辨率" items:resolutionMenu]];
-    NSMenu* scaleMenu = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+    NSMenu* scaleMenu = [self newMenu];
     [display addItem:[self submenuTitled:@"画面缩放" items:scaleMenu]];
     scaleMenu.delegate = self;
     [self fillScaleMenu:scaleMenu];
-    [menu addItem:[self submenuTitled:@"显示" items:display]];
-    NSMenu* input = [[[NSMenu alloc] initWithTitle:@""] autorelease];
+    return display;
+}
+// 鼠标与键盘: three single-choice mouse modes with a note, then 暂停输入.
+- (NSMenu*)buildInputMenu {
+    NSMenu* input = [self newMenu];
+    input.title = @"鼠标与键盘";
     NSString* const modes[][2] = {
         {@"本机鼠标（推荐办公）", @"显示本机光标，响应最快，适合日常办公"},
         {@"远端鼠标", @"显示被控端的光标样式"},
@@ -342,17 +403,47 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     NSMenuItem* pause = [self itemTitled:@"暂停输入" action:@selector(inputPause:) tag:0];
     pause.toolTip = @"暂停期间键盘鼠标不发送到远端";
     [input addItem:pause];
-    [menu addItem:[self submenuTitled:@"鼠标与键盘" items:input]];
-    [menu addItem:[self itemTitled:@"连接信息…" action:@selector(statistics:) tag:0]];
-    if (hasDevices) [menu addItem:[self itemTitled:@"设备列表…" action:@selector(devices:) tag:0]];
-    [menu addItem:[NSMenuItem separatorItem]];
-    NSMenuItem* fullscreenItem = [self itemTitled:[self fullscreenTitle] action:@selector(fullscreen:) tag:0];
-    fullscreenItem.attributedTitle = officeMenuTitle([self fullscreenTitle], officeFullscreenShortcut, NO, nil);
-    [menu addItem:fullscreenItem];
-    NSMenuItem* disconnectItem = [self itemTitled:@"断开连接" action:@selector(disconnect:) tag:0];
-    disconnectItem.attributedTitle = officeMenuTitle(@"断开连接", nil, NO, NSColor.systemRedColor);
-    [menu addItem:disconnectItem];
-    return menu;
+    return input;
+}
+// The capsule title: status dot, bold device name, gap, grey summary.
+- (NSAttributedString*)infoTitleWithSummary:(NSString*)line {
+    NSFont* small = [NSFont monospacedDigitSystemFontOfSize:NSFont.smallSystemFontSize weight:NSFontWeightRegular];
+    NSMutableAttributedString* text = [[[NSMutableAttributedString alloc] initWithString:@"●" attributes:@{
+        NSFontAttributeName: small,
+        NSForegroundColorAttributeName: details.length ? NSColor.systemGreenColor : NSColor.tertiaryLabelColor}] autorelease];
+    NSDictionary* nameAttributes = @{NSFontAttributeName: [NSFont boldSystemFontOfSize:NSFont.systemFontSize],
+        NSForegroundColorAttributeName: NSColor.labelColor};
+    NSString* name = officeFitted(deviceName ?: @"", nameAttributes, officeDeviceNameWidth);
+    [text appendAttributedString:[[[NSAttributedString alloc] initWithString:[@" " stringByAppendingString:name]
+        attributes:nameAttributes] autorelease]];
+    [text appendAttributedString:[[[NSAttributedString alloc] initWithString:[@"    " stringByAppendingString:line ?: @""]
+        attributes:@{NSFontAttributeName: small, NSForegroundColorAttributeName: NSColor.secondaryLabelColor}] autorelease]];
+    return text;
+}
+- (void)updateInfo {
+    if (!infoButton) return;
+    infoButton.attributedTitle = [self infoTitleWithSummary:summaryLine];
+}
+// Width depends on the device name only: the summary has a fixed slot.
+- (void)updateInfoWidth {
+    if (!infoButton) return;
+    const CGFloat text = ceil([self infoTitleWithSummary:officeSummarySample].size.width);
+    const CGFloat image = infoButton.image ? infoButton.image.size.width + 6 : 0;
+    const CGFloat width = text + image + 28;
+    if (!infoWidth) {
+        infoWidth = [[infoButton.widthAnchor constraintEqualToConstant:width] retain];
+        infoWidth.active = YES;
+    } else if (infoWidth.constant != width) {
+        infoWidth.constant = width;
+    }
+}
+- (void)setDeviceName:(NSString*)name {
+    NSString* shown = name.length ? name : @"远程电脑";
+    if ([deviceName isEqualToString:shown]) return;
+    [deviceName release];
+    deviceName = [shown copy];
+    [self updateInfoWidth];
+    [self updateInfo];
 }
 - (void)invalidate {
     invalidated = YES;
@@ -360,7 +451,7 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     panel.delegate = nil;
     [panel orderOut:nil];
-    [controlMenu cancelTrackingWithoutAnimation];
+    for (NSMenu* menu in builtMenus) [menu cancelTrackingWithoutAnimation];
     if (confirmation) {
         [streamWindow endSheet:confirmation.window returnCode:NSModalResponseCancel];
         [confirmation.window orderOut:nil];
@@ -433,13 +524,20 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
 }
 - (void)setSummary:(NSString*)line details:(NSString*)full {
     NSString* shown = line.length ? line : @"统计读取中";
-    if (![summary.stringValue isEqualToString:shown]) summary.stringValue = shown;
+    const BOOL hadDetails = details.length != 0;
+    const BOOL lineChanged = ![summaryLine isEqualToString:shown];
+    if (lineChanged) {
+        [summaryLine release];
+        summaryLine = [shown copy];
+    }
     if (![details isEqualToString:full]) {
         [details release];
         details = [full copy];
-        summary.toolTip = full.length ? full : @"连接后显示延迟、帧率和码率";
+        infoButton.toolTip = full.length ? full : @"连接后显示延迟、帧率和码率";
         [self updatePanel];
     }
+    // The capsule keeps its width: only its title changes (dot color, summary).
+    if (lineChanged || hadDetails != (details.length != 0)) [self updateInfo];
     [self syncPanel];
 }
 - (void)poll {
@@ -453,41 +551,80 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     panelWanted = NO;
     [self send:office::Action::Statistics first:0 second:0];
 }
+- (NSArray<NSToolbarItemIdentifier>*)centerItemIdentifiers {
+    NSMutableArray* items = [NSMutableArray arrayWithArray:@[officeDisplayId, officeInputId, officeFullscreenId]];
+    if (hasDevices) [items addObject:officeDevicesId];
+    return items;
+}
 - (NSArray<NSToolbarItemIdentifier>*)toolbarAllowedItemIdentifiers:(NSToolbar*)toolbar {
     (void)toolbar;
-    return @[@"office.device", @"office.summary", @"office.status", @"office.control", @"office.disconnect",
-        NSToolbarFlexibleSpaceItemIdentifier];
+    return @[officeInfoId, officeStatusId, officeDisplayId, officeInputId, officeFullscreenId, officeDevicesId,
+        officeDisconnectId, NSToolbarFlexibleSpaceItemIdentifier];
 }
 - (NSArray<NSToolbarItemIdentifier>*)toolbarDefaultItemIdentifiers:(NSToolbar*)toolbar {
     (void)toolbar;
-    NSMutableArray* items = [NSMutableArray arrayWithArray:@[@"office.device", @"office.summary"]];
-    if (@available(macOS 11.0, *)) {} else { [items addObject:@"office.status"]; }
-    [items addObjectsFromArray:@[NSToolbarFlexibleSpaceItemIdentifier, @"office.control", @"office.disconnect"]];
+    NSMutableArray* items = [NSMutableArray arrayWithObject:officeInfoId];
+    if (@available(macOS 11.0, *)) {} else { [items addObject:officeStatusId]; }
+    // The flexible spaces keep the disconnect button away from the icon group.
+    [items addObject:NSToolbarFlexibleSpaceItemIdentifier];
+    [items addObjectsFromArray:[self centerItemIdentifiers]];
+    [items addObjectsFromArray:@[NSToolbarFlexibleSpaceItemIdentifier, officeDisconnectId]];
     return items;
+}
+// An icon-only toolbar button; before macOS 11 (no SF Symbols) it shows its title.
+- (void)decorateIconItem:(NSToolbarItem*)item symbols:(NSArray<NSString*>*)names title:(NSString*)title {
+    NSImage* image = officeSymbol(names, title);
+    if (image) item.image = image;
+    else if (@available(macOS 10.15, *)) item.title = title;
+    if (@available(macOS 10.15, *)) item.bordered = YES;
 }
 - (NSToolbarItem*)toolbar:(NSToolbar*)toolbar itemForItemIdentifier:(NSToolbarItemIdentifier)identifier
         willBeInsertedIntoToolbar:(BOOL)inserted {
     (void)toolbar; (void)inserted;
-    NSToolbarItem* item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+    NSToolbarItem* item = nil;
     NSMenuItem* overflow = nil;
     NSString* title = nil;
-    if ([identifier isEqualToString:@"office.device"]) {
-        title = @"设备";
-        item.view = device;
-    } else if ([identifier isEqualToString:@"office.summary"]) {
+    const BOOL display = [identifier isEqualToString:officeDisplayId];
+    if ([identifier isEqualToString:officeInfoId]) {
         title = @"连接信息";
-        item.view = summary;
+        item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+        item.view = infoButton;
         overflow = [self itemTitled:@"连接信息…" action:@selector(statistics:) tag:0];
-    } else if ([identifier isEqualToString:@"office.status"]) {
+    } else if ([identifier isEqualToString:officeStatusId]) {
         title = @"连接状态";
+        item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
         item.view = status;
-    } else if ([identifier isEqualToString:@"office.control"]) {
-        title = @"控制中心";
-        item.view = controlButton;
-        // Narrow windows move the item into the overflow menu: same structure.
-        overflow = [self submenuTitled:title items:[self buildControlMenu]];
-    } else if ([identifier isEqualToString:@"office.disconnect"]) {
+    } else if (display || [identifier isEqualToString:officeInputId]) {
+        // A click opens the menu (no primary action); the overflow menu has the
+        // same entries under the same title.
+        title = display ? @"显示" : @"鼠标与键盘";
+        NSMenuToolbarItem* menuItem = [[[NSMenuToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+        menuItem.menu = display ? displayMenu : inputMenu;
+        menuItem.showsIndicator = YES;
+        item = menuItem;
+        [self decorateIconItem:item symbols:display ? @[@"display"] : @[@"computermouse", @"keyboard"] title:title];
+        item.toolTip = display ? @"显示：分辨率、画面缩放" : @"鼠标与键盘：鼠标模式、暂停输入";
+        overflow = [self submenuTitled:title items:display ? [self buildDisplayMenu] : [self buildInputMenu]];
+    } else if ([identifier isEqualToString:officeFullscreenId]) {
+        title = @"全屏";
+        item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+        item.target = self;
+        item.action = @selector(fullscreen:);
+        if (@available(macOS 10.15, *)) item.bordered = YES;
+        overflow = [self itemTitled:[self fullscreenTitle] action:@selector(fullscreen:) tag:0];
+        [fullscreenItem release];
+        fullscreenItem = [item retain];
+    } else if ([identifier isEqualToString:officeDevicesId]) {
+        title = @"设备列表";
+        item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
+        item.target = self;
+        item.action = @selector(devices:);
+        [self decorateIconItem:item symbols:@[@"list.bullet", @"rectangle.stack"] title:title];
+        item.toolTip = @"设备列表";
+        overflow = [self itemTitled:@"设备列表…" action:@selector(devices:) tag:0];
+    } else if ([identifier isEqualToString:officeDisconnectId]) {
         title = @"断开";
+        item = [[[NSToolbarItem alloc] initWithItemIdentifier:identifier] autorelease];
         item.view = disconnectButton;
         overflow = [self itemTitled:title action:@selector(disconnect:) tag:0];
         overflow.attributedTitle = officeMenuTitle(title, nil, NO, NSColor.systemRedColor);
@@ -498,7 +635,12 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     item.paletteLabel = title;
     if (!overflow) overflow = [self itemTitled:title action:nil tag:0];
     item.menuFormRepresentation = overflow;
+    if (item == fullscreenItem) [self decorateFullscreenItem];
     return item;
+}
+- (BOOL)validateToolbarItem:(NSToolbarItem*)item {
+    (void)item;
+    return !invalidated;
 }
 - (BOOL)validateMenuItem:(NSMenuItem*)item {
     if (invalidated) return NO;
@@ -532,12 +674,16 @@ static NSAttributedString* officeMenuTitle(NSString* title, NSString* note, BOOL
     [panel release];
     [panelText release];
     [details release];
-    [device release];
-    [summary release];
+    [infoButton release];
+    [infoWidth release];
+    [deviceName release];
+    [summaryLine release];
     [status release];
-    [controlButton release];
     [disconnectButton release];
-    [controlMenu release];
+    [displayMenu release];
+    [inputMenu release];
+    [builtMenus release];
+    [fullscreenItem release];
     [confirmation release];
     [resolutions release];
     [resolutionTitles release];
@@ -588,25 +734,26 @@ public:
         target->scales = [@[] retain];
         target->scalePending = YES;
         target->fullscreenShown = [target streamFullscreen];
-        target->device = [[NSTextField labelWithString:@"远程电脑"] retain];
-        target->device.font = [NSFont boldSystemFontOfSize:NSFont.systemFontSize];
-        target->device.lineBreakMode = NSLineBreakByTruncatingTail;
-        [target->device.widthAnchor constraintLessThanOrEqualToConstant:220].active = YES;
-        target->summary = [[NSTextField labelWithString:@"统计读取中"] retain];
-        target->summary.font = [NSFont monospacedDigitSystemFontOfSize:NSFont.smallSystemFontSize
-            weight:NSFontWeightRegular];
-        target->summary.textColor = NSColor.secondaryLabelColor;
-        target->summary.lineBreakMode = NSLineBreakByTruncatingTail;
-        target->summary.toolTip = @"连接后显示延迟、帧率和码率";
-        // Fixed width: per-second updates must not relayout the toolbar.
-        [target->summary.widthAnchor constraintEqualToConstant:260].active = YES;
+        target->builtMenus = [[NSMutableArray alloc] init];
+        target->summaryLine = [@"统计读取中" copy];
+        // One button for the whole capsule: a single toolbar control gets one
+        // system background (Liquid Glass on macOS 26) sized to it with the
+        // button's own padding. Separate label items were grouped onto one
+        // glass piece edge to edge, without padding or spacing.
+        target->infoButton = [[NSButton buttonWithTitle:@"" target:target action:@selector(statistics:)] retain];
+        target->infoButton.bezelStyle = NSBezelStyleTexturedRounded;
+        target->infoButton.image = officeSymbol(@[@"info.circle"], @"连接信息");
+        target->infoButton.imagePosition = NSImageTrailing;
+        target->infoButton.imageHugsTitle = YES;
+        target->infoButton.alignment = NSTextAlignmentLeft;
+        target->infoButton.cell.lineBreakMode = NSLineBreakByTruncatingTail;
+        target->infoButton.toolTip = @"连接后显示延迟、帧率和码率";
+        [target->infoButton setAccessibilityLabel:@"连接信息"];
+        [target setDeviceName:@"远程电脑"];
         target->status = [[NSTextField labelWithString:@""] retain];
         target->status.frame = NSMakeRect(0, 0, 230, 20);
-        target->controlMenu = [[target buildControlMenu] retain];
-        target->controlButton = [[NSButton buttonWithTitle:@"控制中心 ▾" target:target
-            action:@selector(showControlCenter:)] retain];
-        target->controlButton.toolTip = @"显示、鼠标与键盘、连接信息、全屏和断开";
-        [target->controlButton sizeToFit];
+        target->displayMenu = [[target buildDisplayMenu] retain];
+        target->inputMenu = [[target buildInputMenu] retain];
         target->disconnectButton = [[NSButton buttonWithTitle:@"断开" target:target
             action:@selector(disconnect:)] retain];
         target->disconnectButton.attributedTitle = [[[NSAttributedString alloc] initWithString:@"断开" attributes:@{
@@ -629,6 +776,10 @@ public:
         nativeToolbar.displayMode = NSToolbarDisplayModeIconOnly;
         nativeToolbar.allowsUserCustomization = NO;
         nativeToolbar.autosavesConfiguration = NO;
+        // Older systems center the icon group approximately with the two flexible spaces.
+        if (@available(macOS 13.0, *)) {
+            nativeToolbar.centeredItemIdentifiers = [NSSet setWithArray:[target centerItemIdentifiers]];
+        }
         if (@available(macOS 11.0, *)) {
             previousToolbarStyle = parent.toolbarStyle;
             parent.toolbarStyle = NSWindowToolbarStyleExpanded;
@@ -664,10 +815,7 @@ public:
     }
     void setDeviceName(const char* name) override {
         NSString* text = [NSString stringWithUTF8String:name ? name : ""] ?: @"";
-        if (!text.length) text = @"远程电脑";
-        if ([target->device.stringValue isEqualToString:text]) return;
-        target->device.stringValue = text;
-        target->device.toolTip = text;
+        [target setDeviceName:text];
     }
     void setInputPaused(bool paused) override {
         // Session state only (for example kept across a reconnect); no Action.

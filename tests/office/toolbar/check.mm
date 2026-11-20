@@ -133,34 +133,81 @@ int main() { @autoreleasepool {
         NSColor* color = [text attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:nullptr];
         return [color isEqual:NSColor.systemRedColor];
     };
-    // Toolbar: device name and summary on the left; control center and disconnect on the right.
-    NSMutableArray* expectedIds = [NSMutableArray arrayWithArray:@[@"office.device", @"office.summary"]];
+    // Toolbar: info capsule on the left, centered icon group, red disconnect on the far right.
+    NSArray* center = @[@"office.display", @"office.input", @"office.fullscreen", @"office.devices"];
+    NSMutableArray* expectedIds = [NSMutableArray arrayWithArray:@[@"office.info"]];
     if (@available(macOS 11.0, *)) {} else { [expectedIds addObject:@"office.status"]; }
-    [expectedIds addObjectsFromArray:@[NSToolbarFlexibleSpaceItemIdentifier, @"office.control", @"office.disconnect"]];
+    [expectedIds addObject:NSToolbarFlexibleSpaceItemIdentifier];
+    [expectedIds addObjectsFromArray:center];
+    [expectedIds addObjectsFromArray:@[NSToolbarFlexibleSpaceItemIdentifier, @"office.disconnect"]];
     assert([[window.toolbar.items valueForKey:@"itemIdentifier"] isEqualToArray:expectedIds]);
-    assert(toolbarItem(@"office.device").view == target->device && [target->device.stringValue isEqualToString:@"远程电脑"]);
+    if (@available(macOS 13.0, *)) {
+        assert([window.toolbar.centeredItemIdentifiers isEqualToSet:[NSSet setWithArray:center]]);
+    }
+    assert(!toolbarItem(@"office.control") && !toolbarItem(@"office.device") && !toolbarItem(@"office.summary"));
+    // Info capsule: one button (dot, bold name, gap, grey summary, info symbol) that toggles the panel.
+    NSButton* info = target->infoButton;
+    assert(toolbarItem(@"office.info").view == info && info.target == target && info.action == @selector(statistics:));
+    assert([info.attributedTitle.string isEqualToString:@"● 远程电脑    统计读取中"]);
+    assert([info.toolTip isEqualToString:@"连接后显示延迟、帧率和码率"]);
+    if (@available(macOS 11.0, *)) assert(info.image && info.imagePosition == NSImageTrailing);
+    NSFont* nameFont = [info.attributedTitle attribute:NSFontAttributeName atIndex:2 effectiveRange:nullptr];
+    assert(nameFont.fontDescriptor.symbolicTraits & NSFontDescriptorTraitBold);
+    NSAttributedString* infoTitle = info.attributedTitle;
+    assert([[infoTitle attribute:NSForegroundColorAttributeName atIndex:infoTitle.length - 1 effectiveRange:nullptr]
+        isEqual:NSColor.secondaryLabelColor]);
+    const CGFloat infoWidth = target->infoWidth.constant;
+    assert(target->infoWidth.active && infoWidth > 0);
     toolbar->setDeviceName("办公电脑");
-    assert([target->device.stringValue isEqualToString:@"办公电脑"]);
+    assert([target->deviceName isEqualToString:@"办公电脑"] && [info.attributedTitle.string isEqualToString:@"● 办公电脑    统计读取中"]);
+    toolbar->setDeviceName("一个非常非常非常非常非常非常非常非常非常非常非常长的远程电脑名称");
+    assert([info.attributedTitle.string containsString:@"…    统计读取中"]); // the name is cut, never the summary
+    assert(target->infoWidth.constant <= infoWidth + officeDeviceNameWidth);
     toolbar->setDeviceName("");
-    assert([target->device.stringValue isEqualToString:@"远程电脑"]);
-    assert(toolbarItem(@"office.control").view == target->controlButton);
-    assert([target->controlButton.title isEqualToString:@"控制中心 ▾"]);
-    assert(toolbarItem(@"office.disconnect").view == target->disconnectButton && redText(target->disconnectButton.attributedTitle));
-    assert(redText(toolbarItem(@"office.disconnect").menuFormRepresentation.attributedTitle));
-    // Control center menu: order and texts; the overflow form has the same structure.
-    NSMenu* menu = target->controlMenu;
-    NSArray* top = labels(menu);
-    assert(top.count == 7);
-    assert([[top subarrayWithRange:NSMakeRange(0, 5)] isEqualToArray:(@[@"显示", @"鼠标与键盘", @"连接信息…", @"设备列表…", @"-"])]);
-    assert([top[5] hasPrefix:@"进入全屏"] && [top[6] isEqualToString:@"断开连接"]);
-    assert([labels(toolbarItem(@"office.control").menuFormRepresentation.submenu) isEqualToArray:top]);
-    NSMenuItem* fullscreenItem = [menu itemAtIndex:5];
+    assert([target->deviceName isEqualToString:@"远程电脑"] && target->infoWidth.constant == infoWidth);
+    assert([label(toolbarItem(@"office.info").menuFormRepresentation) isEqualToString:@"连接信息…"]);
+    // Center icons: 显示 and 鼠标与键盘 open their menus on click; the overflow
+    // forms carry the category title and the same entries.
+    NSMenu* const iconMenus[] = {target->displayMenu, target->inputMenu};
+    NSString* const iconTitles[] = {@"显示", @"鼠标与键盘"};
+    for (int i = 0; i < 2; ++i) {
+        NSToolbarItem* item = toolbarItem(center[i]);
+        assert([item isKindOfClass:NSMenuToolbarItem.class] && ((NSMenuToolbarItem*)item).menu == iconMenus[i]);
+        assert(((NSMenuToolbarItem*)item).showsIndicator && !item.action && item.toolTip.length);
+        assert([item.label isEqualToString:iconTitles[i]]);
+        if (@available(macOS 11.0, *)) assert(item.image);
+        NSMenuItem* overflow = item.menuFormRepresentation;
+        assert([overflow.title isEqualToString:iconTitles[i]] && overflow.submenu != iconMenus[i]);
+        assert([labels(overflow.submenu) isEqualToArray:labels(iconMenus[i])]);
+    }
+    // Fullscreen icon: toggles directly; icon, tooltip and overflow title follow the state.
+    NSToolbarItem* fullscreenIcon = toolbarItem(@"office.fullscreen");
+    assert(fullscreenIcon.target == target && fullscreenIcon.action == @selector(fullscreen:));
+    assert([fullscreenIcon.toolTip isEqualToString:@"进入全屏（⌃⌥⇧X）"]);
+    if (@available(macOS 11.0, *)) assert([fullscreenIcon.image.accessibilityDescription isEqualToString:@"进入全屏"]);
+    NSMenuItem* fullscreenItem = fullscreenIcon.menuFormRepresentation;
     [target validateMenuItem:fullscreenItem];
     assert([label(fullscreenItem) hasPrefix:@"进入全屏"] && [fullscreenItem.attributedTitle.string containsString:@"⌃⌥⇧X"]);
     assert(fullscreenItem.keyEquivalent.length == 0); // the SDL shortcut already toggles it
-    assert(redText([menu itemAtIndex:6].attributedTitle));
+    target->fullscreenShown = YES;
+    [target decorateFullscreenItem];
+    assert([fullscreenIcon.toolTip isEqualToString:@"退出全屏（⌃⌥⇧X）"] && [label(fullscreenItem) hasPrefix:@"退出全屏"]);
+    if (@available(macOS 11.0, *)) assert([fullscreenIcon.image.accessibilityDescription isEqualToString:@"退出全屏"]);
+    [target poll]; // the hidden window is not fullscreen: polling restores the state
+    assert([fullscreenIcon.toolTip isEqualToString:@"进入全屏（⌃⌥⇧X）"]);
+    if (@available(macOS 11.0, *)) assert([fullscreenIcon.image.accessibilityDescription isEqualToString:@"进入全屏"]);
+    assert([target validateToolbarItem:fullscreenIcon]);
+    // Devices icon only with a device manager.
+    NSToolbarItem* devicesIcon = toolbarItem(@"office.devices");
+    assert(devicesIcon.target == target && devicesIcon.action == @selector(devices:));
+    assert([label(devicesIcon.menuFormRepresentation) isEqualToString:@"设备列表…"]);
+    [target devices:devicesIcon];
+    assert(events.back() == std::make_tuple(office::Action::Devices,0,0));
+    // Red disconnect at the far right, after a flexible space.
+    assert(toolbarItem(@"office.disconnect").view == target->disconnectButton && redText(target->disconnectButton.attributedTitle));
+    assert(redText(toolbarItem(@"office.disconnect").menuFormRepresentation.attributedTitle));
     // 显示 › 分辨率: only the current resolution is checked.
-    NSMenu* display = [menu itemAtIndex:0].submenu;
+    NSMenu* display = target->displayMenu;
     assert([labels(display) isEqualToArray:(@[@"分辨率", @"画面缩放"])]);
     NSMenu* resolutionMenu = [display itemAtIndex:0].submenu;
     assert(resolutionMenu.numberOfItems == 6 && [label([resolutionMenu itemAtIndex:3]) isEqualToString:@"2560 × 1440"]);
@@ -171,9 +218,9 @@ int main() { @autoreleasepool {
     [target menuNeedsUpdate:scaleMenu];
     assert([labels(scaleMenu) isEqualToArray:@[@"读取中…"]] && ![scaleMenu itemAtIndex:0].enabled);
     toolbar->setDisplayScales({100,125,150,200},150,false);
-    NSToolbarItem* controlItem = toolbarItem(@"office.control");
+    NSToolbarItem* displayItem = toolbarItem(@"office.display");
     toolbar->setDisplayScales({100,125,150,200},150,false);
-    assert(toolbarItem(@"office.control") == controlItem);
+    assert(toolbarItem(@"office.display") == displayItem);
     [target menuNeedsUpdate:scaleMenu];
     assert([labels(scaleMenu) isEqualToArray:(@[@"100%", @"125%", @"150%", @"200%"])]);
     assert(checked(scaleMenu) == std::vector<NSInteger>{2});
@@ -190,7 +237,7 @@ int main() { @autoreleasepool {
     [target menuNeedsUpdate:scaleMenu];
     assert([labels(scaleMenu) isEqualToArray:@[@"不可用"]]);
     // 鼠标与键盘: three single-choice modes with a grey description, then 暂停输入.
-    NSMenu* input = [menu itemAtIndex:1].submenu;
+    NSMenu* input = target->inputMenu;
     assert([labels(input) isEqualToArray:(@[@"本机鼠标（推荐办公）", @"远端鼠标", @"游戏模式（锁定鼠标）", @"-", @"暂停输入"])]);
     assert([[input itemAtIndex:0].attributedTitle.string hasSuffix:@"\n显示本机光标，响应最快，适合日常办公"]);
     assert([[input itemAtIndex:1].attributedTitle.string hasSuffix:@"\n显示被控端的光标样式"]);
@@ -231,16 +278,19 @@ int main() { @autoreleasepool {
     assert(officeFullscreenOptions(NSApplicationPresentationFullScreen) == NSApplicationPresentationFullScreen);
     const O windowed = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
     assert(officeFullscreenOptions(windowed) == windowed);
-    // Resident statistics summary; details are the tooltip.
-    assert(toolbarItem(@"office.summary").view == target->summary);
+    // Resident statistics summary in the capsule; details are the tooltip; the
+    // dot turns green with statistics; the capsule keeps its width.
     toolbar->setStatistics("延迟 12 ms · 60 帧/秒 · 18.5 Mbps", "视频：1920×1080\n码率：18.5 Mbps");
-    assert([target->summary.stringValue isEqualToString:@"延迟 12 ms · 60 帧/秒 · 18.5 Mbps"]);
-    assert([target->summary.toolTip isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
+    assert([info.attributedTitle.string isEqualToString:@"● 远程电脑    延迟 12 ms · 60 帧/秒 · 18.5 Mbps"]);
+    assert([info.toolTip isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
+    assert([[info.attributedTitle attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:nullptr]
+        isEqual:NSColor.systemGreenColor]);
+    assert(target->infoWidth.constant == infoWidth);
     // 连接信息… toggles a non-activating panel that never takes the stream
     // window's keyboard focus and joins the fullscreen Space.
-    NSMenuItem* statisticsItem = [menu itemAtIndex:2];
+    NSMenuItem* statisticsItem = toolbarItem(@"office.info").menuFormRepresentation;
     const size_t beforeStats = events.size();
-    [target statistics:statisticsItem];
+    [info sendAction:info.action to:info.target]; // a click anywhere on the capsule (hidden window: no performClick)
     assert(events.size() == beforeStats + 1 && events.back() == std::make_tuple(office::Action::Statistics,1,0));
     assert(target->panel && [target->panel.title isEqualToString:@"连接信息"]);
     [target validateMenuItem:statisticsItem];
@@ -249,9 +299,6 @@ int main() { @autoreleasepool {
     assert(target->panel.collectionBehavior & NSWindowCollectionBehaviorFullScreenAuxiliary);
     assert(!target->panel.visible); // the stream window is hidden in this check
     assert([target->panelText.stringValue isEqualToString:@"视频：1920×1080\n码率：18.5 Mbps"]);
-    NSMenuItem* statisticsOverflow = toolbarItem(@"office.summary").menuFormRepresentation;
-    [target validateMenuItem:statisticsOverflow];
-    assert(statisticsOverflow.state == NSControlStateValueOn);
     [target statistics:statisticsItem];
     assert(events.back() == std::make_tuple(office::Action::Statistics,0,0));
     [target validateMenuItem:statisticsItem];
@@ -263,7 +310,9 @@ int main() { @autoreleasepool {
     [target validateMenuItem:statisticsItem];
     assert(events.back() == std::make_tuple(office::Action::Statistics,0,0) && statisticsItem.state == NSControlStateValueOff);
     toolbar->setStatistics("", "");
-    assert([target->summary.stringValue isEqualToString:@"统计读取中"]);
+    assert([info.attributedTitle.string isEqualToString:@"● 远程电脑    统计读取中"]);
+    assert([[info.attributedTitle attribute:NSForegroundColorAttributeName atIndex:0 effectiveRange:nullptr]
+        isEqual:NSColor.tertiaryLabelColor]);
     assert(window.childWindows.count == 0 && originalContent.subviews.count == 0);
     // Not paused: the resolution sheet pauses input and resumes it on close.
     const size_t before = events.size();
@@ -285,8 +334,11 @@ int main() { @autoreleasepool {
     toolbar = std::make_unique<office::MacToolbar>(window,1920,1080,office::MouseMode::Local,
         [&](office::Action a,int x,int y){events.emplace_back(a,x,y);},false);
     target = (OfficeToolbarTarget*)window.toolbar.delegate;
-    assert(![labels(target->controlMenu) containsObject:@"设备列表…"]); // no device manager in this process
-    [target resolutionChanged:[[[target->controlMenu itemAtIndex:0].submenu itemAtIndex:0].submenu itemAtIndex:3]];
+    assert(!toolbarItem(@"office.devices")); // no device manager in this process
+    if (@available(macOS 13.0, *)) {
+        assert(![window.toolbar.centeredItemIdentifiers containsObject:@"office.devices"]);
+    }
+    [target resolutionChanged:[[target->displayMenu itemAtIndex:0].submenu itemAtIndex:3]];
     [target disconnect:nil];
     const auto afterDisconnect = events.size();
     assert(std::get<0>(events.back())==office::Action::Disconnect);
@@ -296,12 +348,12 @@ int main() { @autoreleasepool {
     toolbar = std::make_unique<office::MacToolbar>(window,1920,1080,office::MouseMode::Local,
         [&](office::Action a,int,int){if(a==office::Action::InputPause) toolbar.reset();},false);
     target = (OfficeToolbarTarget*)window.toolbar.delegate;
-    [target resolutionChanged:[[[target->controlMenu itemAtIndex:0].submenu itemAtIndex:0].submenu itemAtIndex:3]];
+    [target resolutionChanged:[[target->displayMenu itemAtIndex:0].submenu itemAtIndex:3]];
     assert(!pendingCompletion && !toolbar);
     assert(class_getMethodImplementation(FakeSdlListener.class, optionsSelector) == fakeWrapped);
     window.delegate = nil;
     [window close]; [window release];
     [unregistered close]; [unregistered release];
     [listener release]; [empty release];
-    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, toolbar layout (device, summary, control center, red disconnect), control center menu order/texts with single check marks (resolution, DPI, mouse), input pause, fullscreen label and auto-hide options, connection info panel, resolution cancel/confirm (also while paused), disconnect/teardown callback safety; no visible UI");
+    puts("PASS: fullscreen wrapper on the delegate's actual class (once, implemented methods only), hidden native toolbar, unchanged contentView, no child windows, toolbar layout (info capsule left, centered icons display/input/fullscreen/devices, red disconnect far right), info capsule title/width/click, icon menus and overflow forms with single check marks (resolution, DPI, mouse), input pause, fullscreen icon/tooltip and auto-hide options, connection info panel, resolution cancel/confirm (also while paused), disconnect/teardown callback safety; no visible UI");
 } }
