@@ -17,6 +17,8 @@ Item {
                                            qsTr("Starting %1...").arg(appName)
     property bool isResume : false
     property bool quitAfter : false
+    // Set once the segue is done, so window close no longer cancels a stream.
+    property bool deskFinished: false
 
     function cancelDeskClose() {
         if (officeMode && recovery.session) recovery.cancel()
@@ -121,6 +123,7 @@ Item {
 
     function finishSegue(portTestResult)
     {
+        deskFinished = true
         DeskSessionBridge.setCleanupRequired(false)
         if (portTestResult !== 0 && portTestResult !== -1 && streamSegueErrorDialog.text) {
             streamSegueErrorDialog.text += "\n\n" + qsTr("This PC's Internet connection is blocking Moonlight. Streaming over the Internet may not work while connected to this network.")
