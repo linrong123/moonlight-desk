@@ -172,6 +172,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 
 - 实现：串流窗口获得焦点推送 Mac 文本、失去焦点及主动断开前拉取 Windows 文本；“鼠标与键盘”菜单“同步剪贴板”按设备记忆、默认开启，旧版被控端置灰。设计见 [剪贴板同步](CLIPBOARD.md)；被控端接口在 Sunshine Desk `feat/clipboard`。
 - 自动测试：新增 `tests/office/clipboard`（换行规范化、推送去重/超限/重试规则、403 只报一次、拉取去重/本地优先/相同文本不写/开关、严格 XML 与 base64/UTF-8 解析），接入 `office/macos/test.sh`；`tests/office/toolbar/check.mm` 新增“同步剪贴板”菜单项存在、默认置灰与提示、勾选状态、点击发送 `Action::Clipboard`、拒绝提示、确认框期间不可切换。macOS 编译与测试只在云端执行。
+- macOS CI：run 44742537772 通过（提交 63ed373d；`PASS office clipboard (112 checks)`，工具栏 check.mm 含剪贴板开关检查）。首次 run 44742098516 因 check.mm 暂停输入断言未计入剪贴板勾选失败，已修正。
 
 ### 待实机验收
 
