@@ -26,7 +26,7 @@ struct ClipboardReply {
 
 class ClipboardSync {
 public:
-    enum class Push { Skip, Send, TooLarge };
+    enum class Push { Skip, Send, TooLarge, Concealed };
     enum class Reply { None, Denied };
 
     void setSupported(bool supported) { m_Supported = supported; }
@@ -48,8 +48,9 @@ public:
         return active() && !(m_HasLocalChange && changeCount == m_LocalChange);
     }
     // Remote window gained focus. `text` is replaced by the normalized body
-    // when the result is Send.
-    Push focusGained(long changeCount, bool hasText, std::string& text);
+    // when the result is Send. Concealed/transient content (password
+    // managers) is never pushed; its change count still counts as handled.
+    Push focusGained(long changeCount, bool hasText, std::string& text, bool concealed = false);
     // POST result for a push taken at `changeCount`.
     Reply pushFinished(const ClipboardReply& reply, long changeCount);
     // Baseline GET: remember the host sequence without touching the Mac.

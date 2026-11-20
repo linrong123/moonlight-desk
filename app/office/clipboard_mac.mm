@@ -15,6 +15,13 @@ LocalClipboard readLocalClipboard() {
         NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
         LocalClipboard result;
         result.changeCount = static_cast<long>(pasteboard.changeCount);
+        // http://nspasteboard.org: password managers mark secrets this way.
+        NSArray* types = pasteboard.types;
+        if ([types containsObject:@"org.nspasteboard.ConcealedType"] ||
+            [types containsObject:@"org.nspasteboard.TransientType"]) {
+            result.concealed = true;
+            return result;
+        }
         NSString* string = [pasteboard stringForType:NSPasteboardTypeString];
         // dataUsingEncoding keeps embedded NUL characters that UTF8String drops.
         NSData* data = [string dataUsingEncoding:NSUTF8StringEncoding];

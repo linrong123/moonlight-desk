@@ -8,6 +8,9 @@ namespace office {
 struct LocalClipboard {
     long changeCount = 0;
     bool hasText = false;
+    // nspasteboard.org ConcealedType/TransientType (password managers): the
+    // text is not read and must not be synced.
+    bool concealed = false;
     std::string text; // UTF-8
 };
 

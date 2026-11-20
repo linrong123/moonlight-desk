@@ -28,12 +28,13 @@ void ClipboardSync::rememberRemote(const ClipboardReply& reply) {
     m_RemoteSequence = reply.sequence;
 }
 
-ClipboardSync::Push ClipboardSync::focusGained(long changeCount, bool hasText, std::string& text) {
+ClipboardSync::Push ClipboardSync::focusGained(long changeCount, bool hasText, std::string& text, bool concealed) {
     if (!active()) return Push::Skip;
     // NSPasteboard changeCount: unchanged since the last push or pull write
     // means nothing new was copied on the Mac.
     if (m_HasLocalChange && changeCount == m_LocalChange) return Push::Skip;
     adoptLocal(changeCount);
+    if (concealed) return Push::Concealed;
     if (!hasText || text.empty()) return Push::Skip;
     std::string normalized = normalizeClipboardText(text);
     if (normalized.size() > clipboardMaxBytes) return Push::TooLarge;
