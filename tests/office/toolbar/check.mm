@@ -285,7 +285,7 @@ int main() { @autoreleasepool {
     toolbar->setClipboard(true,true,false);
     const size_t beforeSync = events.size();
     toolbar->setInputPaused(true); // restored after reconnect: no event
-    assert(events.size() == beforeSync && checked(input) == (std::vector<NSInteger>{0, 4}));
+    assert(events.size() == beforeSync && checked(input) == (std::vector<NSInteger>{0, 4, 5}));
     // Already paused by the user: the resolution sheet neither pauses nor resumes.
     [target resolutionChanged:[resolutionMenu itemAtIndex:3]];
     assert(events.size() == beforeSync && pendingCompletion);
