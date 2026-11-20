@@ -40,8 +40,19 @@ void State::queueClipboard(ClipboardRequest kind, std::string text, long changeC
         try {
             NvHTTP http(address, port, cert, uid);
             reply = parseClipboardResponse(http.requestOfficeClipboard(body, timeoutMs));
+        } catch (const QtNetworkReplyException& e) {
+            // Bare HTTP errors without XML: 401 from the host's authentication
+            // layer (disabled client, unknown certificate), 413 for an
+            // oversize body. Timeouts and connection failures stay 0.
+            reply = {};
+            reply.status = clipboardErrorStatus(e.getHttpStatusCode());
+            if (!reply.status && e.getError() == QNetworkReply::AuthenticationRequiredError) reply.status = 401;
+        } catch (const GfeHttpResponseException& e) {
+            // Missing pairing or server certificate mismatch: an authentication
+            // failure, never retried on this connection.
+            reply = {};
+            reply.status = e.getStatusCode() == 401 ? 401 : 0;
         } catch (const std::exception&) {
-            // Timeouts, TLS and pairing errors: status 0, never a retry loop.
             reply = {};
         }
         {
@@ -69,12 +80,12 @@ void State::applyClipboardResults(Toolbar* toolbar) {
         switch (result.kind) {
         case ClipboardRequest::Baseline:
             outcome = clipboard.baselineFinished(result.reply);
-            if (status != 200 && status != 403)
+            if (status != 200 && !clipboardDenial(status))
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: baseline read failed (%d)", status);
             break;
         case ClipboardRequest::Push:
             outcome = clipboard.pushFinished(result.reply, result.changeCount);
-            if (status != 200 && status != 403)
+            if (status != 200 && !clipboardDenial(status))
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: push failed (%d)", status);
             break;
         case ClipboardRequest::Pull: {
@@ -91,15 +102,19 @@ void State::applyClipboardResults(Toolbar* toolbar) {
                 }
             } else if (status == 200 && result.reply.tooLarge) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: host text exceeds 1 MiB; not pulled");
-            } else if (status != 200 && status != 403) {
+            } else if (status != 200 && !clipboardDenial(status)) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Office clipboard: pull failed (%d)", status);
             }
             break;
         }
         }
         if (outcome == ClipboardSync::Reply::Denied) {
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                        "Office clipboard: host refused (403); sync stopped for this connection");
+            if (clipboard.deniedStatus() == 401)
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Office clipboard: authentication rejected (401: client disabled or certificate not accepted); sync stopped for this connection");
+            else
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                            "Office clipboard: host refused (403); sync stopped for this connection");
             showClipboard(toolbar);
         }
     }

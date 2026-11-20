@@ -35,8 +35,10 @@
 ## 失败处理
 
 - 网络错误、超时、503（剪贴板被占用）、其他 5xx：只记日志、不弹窗。推送失败时撤销“已同步”登记，**下次获得焦点**再试一次（不在后台循环重试）。
-- 400、413：内容本身不被接受，不重试。
+- 400、413（XML `status_code`，或认证层直接回的裸 HTTP 413）及其他 4xx：内容本身不被接受，不重试。
 - 403：被控端关闭了剪贴板开关、未授权或未在串流。本次连接停止同步（只记一次日志），菜单提示“被控端拒绝了剪贴板同步”；重新连接后再尝试。
+- 401：被控端认证层拒绝（客户端已被禁用、配对证书不被认可），是不带 XML 的裸 HTTP 401；本端缺配对证书或证书不匹配同样按 401 处理。与 403 一样本次连接停止同步、菜单提示相同，日志单独写明 401，绝不随焦点切换反复重试（AGENTS.md：身份验证失败不得循环重试）。
+- 状态码来源：请求抛异常时取 `QtNetworkReplyException::getHttpStatusCode()`（`openConnection` 记下的 HTTP 状态）；没有 HTTP 响应（超时、TLS、连接失败）时为 0，按网络错误处理。
 - 不发起额外的重连；剪贴板失败不影响串流，也不改变“主动断开不自动重连”的规则。
 
 ## 开关
@@ -57,6 +59,7 @@
 - `GET office/clipboard`：`root.sequence`、`hasText`（0/1）、`text`（base64 的 UTF-8）、`tooLarge`。
 - `POST office/clipboard`：body 为原始 UTF-8 文本（`Content-Type: text/plain; charset=utf-8`），返回 `root.sequence`。
 - XML `status_code` 随 HTTP 200 返回：400 非法/空、413 超限、403 拒绝、503 剪贴板被占用。
+- 认证层（XML 之前）可能直接回裸 HTTP 401（客户端已禁用/证书不认）或 413（body 超过 1 MiB），无 XML。
 
 客户端解析（`app/office/clipboardresponse.*`）与其他办公接口同样严格：唯一根 `root` 且只有一个 `status_code`；拒绝 DTD/实体/命名空间、重复或带属性的字段、嵌套元素；`sequence` 只接受十进制数字且不超过 `uint64`；`hasText`/`tooLarge` 只接受 0/1；`text` 必须是标准带填充 base64、解码后是合法 UTF-8 且不超过 1 MiB；响应总长不超过 2 MiB。任一不符合按传输失败处理。未知叶子字段忽略。
 
@@ -64,13 +67,13 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `app/office/clipboardsync.*` | 平台无关决策：去重、重试、403、换行规范化 |
+| `app/office/clipboardsync.*` | 平台无关决策：去重、重试、401/403、换行规范化 |
 | `app/office/clipboardresponse.*` | 严格 XML 解析 |
 | `app/office/localclipboard.h`、`clipboard_mac.mm`、`clipboard_stub.cpp` | Mac `NSPasteboard` 读写（`changeCount`、UTF-8 文本）；其他平台空实现 |
 | `app/office/clipboardhooks.cpp` | 会话侧：后台请求队列、结果代次、焦点边沿、开关、最后一次拉取 |
 | `app/office/sessionhooks.cpp` | `officeStartUi`/`officePollUi`/`officeStopUi`/`officeAction` 中的调用点 |
 | `app/office/toolbar*` | “同步剪贴板”菜单项（`Action::Clipboard`、`Toolbar::setClipboard`） |
-| `app/backend/nvhttp.*` | `requestOfficeClipboard`；`openConnection` 增加可选 POST body |
+| `app/backend/nvhttp.*` | `requestOfficeClipboard`；`openConnection` 增加可选 POST body；`QtNetworkReplyException` 带上 HTTP 状态码 |
 
 ## 已知限制
 

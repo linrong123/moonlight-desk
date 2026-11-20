@@ -15,11 +15,17 @@ std::string normalizeClipboardText(const std::string& text) {
     return result;
 }
 
+int clipboardErrorStatus(int httpStatus) {
+    return httpStatus >= 400 && httpStatus < 600 ? httpStatus : 0;
+}
+
 ClipboardSync::Reply ClipboardSync::deny(int status) {
-    if (status != 403 || m_Denied) return Reply::None;
-    // The host refused (toggle off, not authorized or not streaming). Stop for
-    // the rest of this connection; the caller logs once.
+    if (!clipboardDenial(status) || m_Denied) return Reply::None;
+    // 403: the host refused (toggle off, not authorized or not streaming).
+    // 401: client disabled or certificate not accepted; retrying cannot help.
+    // Stop for the rest of this connection; the caller logs once.
     m_Denied = true;
+    m_DeniedStatus = status;
     return Reply::Denied;
 }
 
@@ -43,20 +49,21 @@ ClipboardSync::Push ClipboardSync::focusGained(long changeCount, bool hasText, s
 }
 
 ClipboardSync::Reply ClipboardSync::pushFinished(const ClipboardReply& reply, long changeCount) {
-    if (reply.status == 403) return deny(reply.status);
+    if (clipboardDenial(reply.status)) return deny(reply.status);
     if (reply.status == 200) {
         if (reply.hasSequence) rememberRemote(reply);
         return Reply::None;
     }
     // Transport failure or a busy host clipboard: try again on the next focus
-    // gain unless the Mac clipboard has moved on already. 400/413 are final.
+    // gain unless the Mac clipboard has moved on already. Other 4xx (400,
+    // XML or bare 413) are final.
     if ((reply.status == 0 || reply.status >= 500) && m_HasLocalChange && m_LocalChange == changeCount)
         m_HasLocalChange = false;
     return Reply::None;
 }
 
 ClipboardSync::Reply ClipboardSync::baselineFinished(const ClipboardReply& reply) {
-    if (reply.status == 403) return deny(reply.status);
+    if (clipboardDenial(reply.status)) return deny(reply.status);
     if (reply.status == 200 && reply.hasSequence) rememberRemote(reply);
     return Reply::None;
 }
@@ -65,7 +72,7 @@ bool ClipboardSync::pullFinished(const ClipboardReply& reply, Reply& outcome,
                                  long changeCountAtRequest, long changeCountNow,
                                  bool localHasText, const std::string& localText) {
     outcome = Reply::None;
-    if (reply.status == 403) {
+    if (clipboardDenial(reply.status)) {
         outcome = deny(reply.status);
         return false;
     }

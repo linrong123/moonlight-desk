@@ -14,6 +14,15 @@ constexpr std::size_t clipboardMaxBytes = 1024 * 1024; // UTF-8 bytes, both dire
 // Line endings travel as LF; CRLF and lone CR become LF.
 std::string normalizeClipboardText(const std::string& text);
 
+// Status for a request that failed before any XML: the HTTP status of a bare
+// error reply (401 from the host's authentication layer, 413 for an oversize
+// body) when one arrived, otherwise 0 (timeout, TLS or connection failure).
+int clipboardErrorStatus(int httpStatus);
+
+// 401 (client disabled or certificate not accepted) and 403 (refused) stop
+// sync for the rest of the connection instead of retrying.
+inline bool clipboardDenial(int status) { return status == 401 || status == 403; }
+
 // Parsed office/clipboard reply. status 0 = transport failure or malformed XML.
 struct ClipboardReply {
     int status = 0;
@@ -32,10 +41,11 @@ public:
     void setSupported(bool supported) { m_Supported = supported; }
     void setEnabled(bool enabled) { m_Enabled = enabled; }
     // A new connection may be allowed again after a 403 on the previous one.
-    void resetConnection() { m_Denied = false; }
+    void resetConnection() { m_Denied = false; m_DeniedStatus = 0; }
     bool supported() const { return m_Supported; }
     bool enabled() const { return m_Enabled; }
     bool denied() const { return m_Denied; }
+    int deniedStatus() const { return m_DeniedStatus; } // 401 or 403 once denied
     bool active() const { return m_Supported && m_Enabled && !m_Denied; }
 
     // The current pasteboard content is treated as already synced (used when
@@ -73,6 +83,7 @@ private:
     bool m_Supported = false;
     bool m_Enabled = true;
     bool m_Denied = false;
+    int m_DeniedStatus = 0;
     bool m_HasLocalChange = false;
     long m_LocalChange = 0;
     bool m_HasRemoteSequence = false;

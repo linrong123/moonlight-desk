@@ -63,7 +63,7 @@ static void push() {
         require(retry.focusGained(3,true,value) == ClipboardSync::Push::Send);
         require(retry.pushFinished(status(code),3) == ClipboardSync::Reply::None && retry.wantsLocal(3));
     }
-    for (int code : {400,413}) {
+    for (int code : {400,413,404}) { // bare HTTP 413 included
         auto stops = activeSync(); std::string value="x";
         require(stops.focusGained(3,true,value) == ClipboardSync::Push::Send);
         require(stops.pushFinished(status(code),3) == ClipboardSync::Reply::None && !stops.wantsLocal(3));
@@ -91,7 +91,23 @@ static void denied() {
     auto pull = activeSync();
     require(!pull.pullFinished(status(403),outcome,1,1,false,{}) && outcome == ClipboardSync::Reply::Denied);
     auto base = activeSync();
-    require(base.baselineFinished(status(403)) == ClipboardSync::Reply::Denied && base.denied());
+    require(base.baselineFinished(status(403)) == ClipboardSync::Reply::Denied && base.denied() && base.deniedStatus()==403);
+    // 401 (disabled client, certificate not accepted) is denied like 403: no retry loop.
+    auto auth = activeSync(); text="x";
+    require(auth.focusGained(1,true,text) == ClipboardSync::Push::Send);
+    require(auth.pushFinished(status(401),1) == ClipboardSync::Reply::Denied && auth.denied() && auth.deniedStatus()==401);
+    require(auth.pushFinished(status(401),1) == ClipboardSync::Reply::None && auth.baselineFinished(status(403)) == ClipboardSync::Reply::None);
+    require(auth.deniedStatus()==401); // the first denial is the one reported
+    text="y"; require(!auth.wantsLocal(2) && auth.focusGained(2,true,text) == ClipboardSync::Push::Skip);
+    auth.resetConnection(); require(auth.active() && auth.deniedStatus()==0);
+    auto authPull = activeSync();
+    require(!authPull.pullFinished(status(401),outcome,1,1,false,{}) && outcome == ClipboardSync::Reply::Denied);
+    auto authBase = activeSync();
+    require(authBase.baselineFinished(status(401)) == ClipboardSync::Reply::Denied && authBase.deniedStatus()==401);
+    // Bare HTTP errors keep their status; no HTTP response maps to 0 (retryable).
+    require(office::clipboardErrorStatus(401)==401 && office::clipboardErrorStatus(413)==413 && office::clipboardErrorStatus(503)==503);
+    require(office::clipboardErrorStatus(0)==0 && office::clipboardErrorStatus(200)==0 && office::clipboardErrorStatus(302)==0 && office::clipboardErrorStatus(600)==0);
+    require(office::clipboardDenial(401) && office::clipboardDenial(403) && !office::clipboardDenial(413) && !office::clipboardDenial(0));
 }
 
 static void pull() {
