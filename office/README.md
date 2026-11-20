@@ -75,4 +75,6 @@ open dist/MoonlightDesk.app
 
 [剪贴板同步](CLIPBOARD.md) 说明触发时机、去重、开关与已知限制，协议以 Sunshine Desk 的同名文档为准。
 
+[应用图标](ICONS.md) 说明原创图标的设计、文件格式、重新生成方法与来源。
+
 [第三方许可与源码出处](THIRD_PARTY.md) 随包保存；`Contents/Resources/OfficeSource/SOURCE.json` 给出确切源码提交。当前是开发版，SDK 间接组件的精确来源映射仍有待补项，未制作正式二进制发行版。
