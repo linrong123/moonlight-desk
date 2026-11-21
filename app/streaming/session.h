@@ -110,6 +110,9 @@ public:
     Q_INVOKABLE int officeRetryDelay();
     Q_INVOKABLE Session* officeNextSession();
     Q_INVOKABLE void officeCancelRecovery();
+    Q_INVOKABLE bool officeWindowParked() const;
+    Q_INVOKABLE void officeReleaseParkedWindow();
+    Q_INVOKABLE bool officeFocusParkedWindow();
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -152,14 +155,21 @@ signals:
     // Office: waiting for the host user to approve this connection.
     void officeApprovalWaiting(bool waiting);
 
+    // Office: 断开 / Esc / close on the window kept during recovery.
+    void officeRecoveryCancelRequested();
+
 private:
     std::shared_ptr<office::State> m_Office;
     std::unique_ptr<office::Toolbar> m_OfficeToolbar;
     int m_OfficeAppliedInput = -1;
     bool m_OfficeInputPaused = false;
     bool m_OfficeRestoreCapture = false;
+    bool m_OfficeParkWindow = false;
     void officeStartUi();
     void officeStopUi();
+    bool officeParkWindow();
+    SDL_Window* officeParkedWindow();
+    void officeResumeWindow(int width, int height);
     void officePollUi();
     void officeAction(office::Action action, int first, int second);
     bool officeAwaitApproval(NvHTTP& http);

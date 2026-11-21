@@ -1,4 +1,5 @@
 #include "officestate.h"
+#include "parkedwindow.h"
 #include <Limelight.h>
 #include <QSettings>
 #include <QCryptographicHash>
@@ -34,6 +35,8 @@ State::State(const QString& hostId)
 }
 
 State::~State() {
+    // Normally released by OfficeRecovery.qml; this is the last resort.
+    parked.reset();
     // Pools must finish before the result mutexes and snapshots are destroyed,
     // including partial startup failures that never reach Session cleanup.
     cursorQueue.clear();

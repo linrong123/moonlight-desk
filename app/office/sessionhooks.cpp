@@ -1,9 +1,13 @@
 #include "streaming/session.h"
 #include "backend/nvcomputer.h"
 #include "connectconfirm.h"
+#include "parkedwindow.h"
+#include "parkedwindowlogic.h"
 #include "sessionbridge.h"
 #include "videostats.h"
 
+#include <QCoreApplication>
+#include <QPointer>
 #include <QThread>
 
 bool Session::officeEnabled() const { return bool(m_Office); }
@@ -15,6 +19,9 @@ int Session::officeRetryDelay() {
         m_Office->reconfigure || m_Office->retryable.load());
     if (delay >= 0 && office::SessionBridge::instance())
         office::SessionBridge::instance()->report("recovering");
+    // attempt() is now the number of the attempt about to be made.
+    if (delay >= 0 && m_Office->parked)
+        m_Office->parked->setRecovery(m_Office->reconfigure, m_Office->recovery.attempt());
     return delay;
 }
 
@@ -25,6 +32,15 @@ Session* Session::officeNextSession() {
     next->m_Office->reconfigure = false;
     next->m_Office->retryable = false;
     next->m_Office->hostEnded = false;
+    if (m_Office->parked) {
+        // QML listens to the next session from now on.
+        m_Office->parked->setCancelHandler([session = QPointer<Session>(next)] {
+            if (session) emit session->officeRecoveryCancelRequested();
+        });
+        // The old session's cleanup and readyForDeletion are done: drop its
+        // frame/connection-lost events before the next session can queue any.
+        SDL_FlushEvent(SDL_USEREVENT);
+    }
     return next;
 }
 
@@ -36,23 +52,85 @@ void Session::officeCancelRecovery() {
     if (s_ActiveSession == this) interrupt();
 }
 
+bool Session::officeWindowParked() const { return m_Office && m_Office->parked; }
+
+// QML calls this on every end of recovery that will not start another session.
+void Session::officeReleaseParkedWindow() {
+    if (m_Office) m_Office->parked.reset();
+}
+
+bool Session::officeFocusParkedWindow() {
+    if (!m_Office || !m_Office->parked) return false;
+    m_Office->parked->focus();
+    return true;
+}
+
+// Exec cleanup, after officeStopUi() and the decoder are gone.
+bool Session::officeParkWindow() {
+    const bool park = m_OfficeParkWindow && m_Window;
+    m_OfficeParkWindow = false;
+    auto parked = park ? office::parkWindow(m_Window, m_Office->reconfigure, m_Office->recovery.attempt())
+                       : nullptr;
+    if (!parked) {
+        m_OfficeToolbar.reset();
+        return false;
+    }
+    parked->setToolbar(std::move(m_OfficeToolbar));
+    parked->setCancelHandler([session = QPointer<Session>(this)] {
+        if (session) emit session->officeRecoveryCancelRequested();
+    });
+    m_Office->parked = std::move(parked);
+    m_Window = nullptr;
+    return true;
+}
+
+SDL_Window* Session::officeParkedWindow() {
+    return m_Office && m_Office->parked ? m_Office->parked->window() : nullptr;
+}
+
+// exec(), in place of SDL_CreateWindow. The parked object's video reference
+// is dropped here: initialize() took one for this session.
+void Session::officeResumeWindow(int width, int height) {
+    auto adopted = m_Office->parked->adopt(m_OfficeToolbar);
+    m_Office->parked.reset();
+    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    if (office::resizeAdoptedWindow(adopted.reconfigure, adopted.fullscreen, adopted.maximized))
+        SDL_SetWindowSize(m_Window, width, height);
+    m_IsFullScreen = (SDL_GetWindowFlags(m_Window) & SDL_WINDOW_FULLSCREEN) != 0;
+    // A kept window gets no SDL_WINDOWEVENT_SHOWN: request the first decoder.
+    SDL_Event event = {};
+    event.type = SDL_RENDER_DEVICE_RESET;
+    SDL_PushEvent(&event);
+}
+
 // Called on the async connection thread before launch/resume (CONNECTION.md §2).
 bool Session::officeAwaitApproval(NvHTTP& http) {
     auto* bridge = office::SessionBridge::instance();
     bool waiting = false;
+    // The kept window (parkedwindow.h) shows the approval text too; it lives
+    // on the UI thread.
+    const auto showParkedApproval = [shared = m_Office](bool value) {
+        QMetaObject::invokeMethod(QCoreApplication::instance(), [shared, value] {
+            if (shared->parked) shared->parked->setApprovalWaiting(value);
+        }, Qt::QueuedConnection);
+    };
     office::ApprovalHooks hooks;
     hooks.request = [&http](const QString& action) { return http.requestOfficeConnect(action); };
     hooks.cancelled = [this] { return m_Office->userStopped.load(); };
-    hooks.waiting = [this, bridge, &waiting] {
+    hooks.waiting = [this, bridge, &waiting, showParkedApproval] {
         waiting = true;
         if (bridge) bridge->report("approval");
         emit officeApprovalWaiting(true);
+        showParkedApproval(true);
     };
     hooks.now = [] { return office::monotonicMs(); };
     hooks.sleep = [](int ms) { QThread::msleep(ms); };
 
-    const auto finishWaiting = [this, &waiting] {
-        if (waiting) emit officeApprovalWaiting(false);
+    const auto finishWaiting = [this, &waiting, &showParkedApproval] {
+        if (waiting) {
+            emit officeApprovalWaiting(false);
+            showParkedApproval(false);
+        }
         waiting = false;
     };
     office::ApprovalOutcome outcome;
@@ -133,6 +211,8 @@ void Session::officeStartUi() {
     m_Office->recovery.connected(office::monotonicMs());
     // Never show a sample from the previous connection.
     office::videoStatsChannel().clear();
+    // A resumed window still carries the previous connection's toolbar.
+    m_OfficeToolbar.reset();
     m_OfficeToolbar = office::createToolbar(m_Window, m_StreamConfig.width, m_StreamConfig.height,
         m_Office->mouseMode, [this](office::Action action, int first, int second) {
             officeAction(action, first, second);
@@ -156,7 +236,12 @@ void Session::officeStopUi() {
     // (bounded wait); a reconnect keeps syncing on the next connection.
     if (m_Office) m_Office->clipboardStop(m_Office->userStopped && !m_Office->reconfigure);
     m_OfficeRestoreCapture = false;
-    m_OfficeToolbar.reset();
+    // Recoverable ends keep the window and its toolbar (parkedwindow.h);
+    // the toolbar stops driving this session right away.
+    m_OfficeParkWindow = m_Office && office::shouldParkWindow(office::parkingSupported(),
+        m_Office->retryable, m_Office->reconfigure, m_Office->userStopped);
+    if (m_OfficeParkWindow && m_OfficeToolbar) m_OfficeToolbar->setActionHandler({});
+    else m_OfficeToolbar.reset();
     office::videoStatsChannel().clear();
 }
 

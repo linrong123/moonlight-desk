@@ -15,6 +15,7 @@
 namespace office {
 constexpr int ConnectionLostEvent = 0x6f660001;
 class Toolbar;
+class ParkedWindow;
 
 struct State {
     explicit State(const QString& hostId);
@@ -69,6 +70,9 @@ struct State {
     std::mutex clipboardMutex;
     unsigned clipboardGeneration = 0;
     std::deque<ClipboardResult> clipboardResults;
+    // UI thread only: the stream window kept between two sessions during
+    // automatic recovery (parkedwindow.h, macOS). Null otherwise.
+    std::unique_ptr<ParkedWindow> parked;
 
     void load(StreamingPreferences* prefs);
     void saveResolution(int width, int height);

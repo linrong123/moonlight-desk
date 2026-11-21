@@ -882,6 +882,9 @@ public:
     void setStatisticsVisible(bool visible) override {
         if (!target->invalidated) [target setPanelVisible:visible ? YES : NO];
     }
+    void setActionHandler(std::function<void(Action, int, int)> callback) override {
+        if (!target->invalidated) target->action = std::move(callback);
+    }
 };
 
 std::unique_ptr<Toolbar> createToolbar(SDL_Window* window, int width, int height,

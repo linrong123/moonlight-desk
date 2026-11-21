@@ -1865,6 +1865,8 @@ void Session::exec()
     QCoreApplication::sendPostedEvents();
 
     int x, y, width, height;
+    // Office: a window kept through automatic recovery (macOS) is reused.
+    m_Window = officeParkedWindow();
     getWindowDimensions(x, y, width, height);
 
 #ifdef STEAM_LINK
@@ -1916,7 +1918,8 @@ void Session::exec()
     std::string windowName = QString(m_Computer->name + " - Moonlight").toStdString();
 #endif
 
-    m_Window = SDL_CreateWindow(windowName.c_str(),
+    if (m_Window) officeResumeWindow(width, height);
+    else m_Window = SDL_CreateWindow(windowName.c_str(),
                                 x,
                                 y,
                                 width,
@@ -2448,13 +2451,16 @@ DispatchDeferredCleanup:
 
     // This must be called after the decoder is deleted, because
     // the renderer may want to interact with the window
-    SDL_DestroyWindow(m_Window);
+    // Office: during automatic recovery the window and its video reference
+    // are handed to office::State instead (parkedwindow.h, macOS).
+    const bool officeParked = officeParkWindow();
+    if (!officeParked) SDL_DestroyWindow(m_Window);
 
     if (iconSurface != nullptr) {
         SDL_FreeSurface(iconSurface);
     }
 
-    SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    if (!officeParked) SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
     // Cleanup can take a while, so dispatch it to a worker thread.
     // When it is complete, it will release our s_ActiveSessionSemaphore

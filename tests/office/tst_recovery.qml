@@ -18,12 +18,16 @@ TestCase {
     property int retries: 0
     property int delay: 0
     property bool allowNext: true
+    property bool parked: false
+    property int releaseCalls: 0
 
     function fakeSession() {
         return {
             officeRetryDelay: function() { policyCalls++; return delay },
             officeNextSession: function() { nextCalls++; return allowNext ? fakeSession() : null },
-            officeCancelRecovery: function() { cancelCalls++ }
+            officeCancelRecovery: function() { cancelCalls++ },
+            officeWindowParked: function() { return parked },
+            officeReleaseParkedWindow: function() { releaseCalls++ }
         }
     }
     Component {
@@ -47,7 +51,7 @@ TestCase {
     function init() {
         policyCalls = 0; nextCalls = 0; cancelCalls = 0
         completions = 0; retries = 0; delay = 0; allowNext = true
-        navigations = 0
+        navigations = 0; parked = false; releaseCalls = 0
         controller = recoveryComponent.createObject(this, { session: fakeSession() })
         navigation = navigationComponent.createObject(this)
     }
@@ -146,5 +150,67 @@ TestCase {
         tryCompare(this, "completions", 1)
         compare(retries, 0)
         compare(controller.session, null)
+    }
+
+    // In-window reconnect (macOS): StreamSegue keeps its Qt window hidden with
+    // window.visible = !streamWindowParked() while the stream window is kept.
+    function test_parkedWindowKeepsQtWindowHidden() {
+        parked = true
+        compare(controller.streamWindowParked(), false) // not recovering yet
+        controller.finished()
+        compare(controller.recovering, true)
+        compare(controller.streamWindowParked(), true)
+        controller.ready()
+        tryCompare(this, "retries", 1)
+        compare(releaseCalls, 0) // the next session adopts the window
+    }
+    function test_notParkedShowsQtWindow() {
+        controller.finished()
+        compare(controller.recovering, true)
+        compare(controller.streamWindowParked(), false)
+        controller.ready()
+        tryCompare(this, "retries", 1)
+        compare(releaseCalls, 0)
+    }
+    function test_finalEndNeverParks() {
+        parked = true
+        delay = -1
+        controller.finished()
+        compare(controller.streamWindowParked(), false)
+        controller.ready()
+        compare(completions, 1)
+        compare(releaseCalls, 1)
+        compare(controller.streamWindowParked(), false)
+    }
+    function test_cancelReleasesParkedWindow() {
+        parked = true
+        controller.finished()
+        controller.cancel()
+        compare(releaseCalls, 0) // old session cleanup still running
+        controller.ready()
+        compare(completions, 1)
+        compare(releaseCalls, 1)
+    }
+    function test_cancelDuringDelayReleasesParkedWindow() {
+        parked = true
+        delay = 100
+        controller.finished()
+        controller.ready()
+        controller.cancel()
+        compare(completions, 1)
+        compare(releaseCalls, 1)
+        controller.cancel()
+        controller.ready()
+        compare(releaseCalls, 1)
+        wait(150)
+        compare(nextCalls, 0)
+    }
+    function test_refusedNextSessionReleasesParkedWindow() {
+        parked = true
+        allowNext = false
+        controller.finished()
+        controller.ready()
+        tryCompare(this, "completions", 1)
+        compare(releaseCalls, 1)
     }
 }

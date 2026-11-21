@@ -74,6 +74,20 @@ Sunshine Desk 在未显式配置时，`lan_encryption_mode` 与 `wan_encryption_
 
 以后支持用户自建中转时，主控端的设备记录增加「连接路线」：`direct(地址:端口)`（当前唯一一种）与 `relay(中转地址, 令牌)`。中转只做转发，身份靠配对证书锁定、内容靠强制加密，不需要信任中转方。仓库不内置任何默认中转地址。实现倾向主控端本地端口转发，避免修改 moonlight-common-c；各串流端口能否整体映射需届时实测。
 
+## 断线恢复：窗口内重连（macOS）
+
+自动恢复（`RecoveryPolicy` 判定可重试的网络中断，或确认分辨率后的重连）期间保留 SDL 串流窗口，在窗口内显示原生遮罩，而不是关窗回到 Qt 恢复页。恢复策略（次数、退避、可重试错误）不变。
+
+- 停放：旧 Session 在 `exec` 末尾清理时，若 `officeStopUi` 已判定 `shouldParkWindow`（平台支持、可重试或 reconfigure、非主动断开），`officeParkWindow` 把窗口、旧会话的 SDL 视频引用（跳过 `SDL_QuitSubSystem(SDL_INIT_VIDEO)`）和工具栏交给 `office::State::parked`（`ParkedWindow`），`m_Window` 置空。其余清理（`LiStopConnection`、光标恢复、`readyForDeletion` 的发出时机）不变，新连接仍在旧连接清理完之后才建立。
+- 遮罩：半透明深色 `NSView` 覆盖内容区，含转圈、文字和“断开”按钮；文字优先级“正在等待被控端确认…”>“正在切换分辨率…”>“网络中断，正在重新连接…（第 N 次）”（N 为 `RecoveryPolicy::attempt()`）。工具栏保留，只有“断开”生效，胶囊显示“正在重连”。
+- 事件：停放期间没有 SDL 事件循环。主线程 50 ms 定时器用 `SDL_PeepEvents(SDL_GETEVENT)` 只取 QUIT、WINDOWEVENT、键盘、鼠标、触摸事件：QUIT 或停放窗口的 CLOSE 取消恢复，其余丢弃；不调 `SDL_PumpEvents`（Qt 已在泵 Cocoa 事件），不取 `SDL_USEREVENT`。新会话开始前 `officeNextSession` 清掉旧会话残留的 `SDL_USEREVENT`。
+- 取消：“断开”、Esc、关闭窗口各只触发一次，排队到主线程发出 `Session::officeRecoveryCancelRequested`，`StreamSegue` 接到 `cancelDeskClose` → `OfficeRecovery.cancel()`，照常等旧会话清理完再 `complete()`。
+- 接管：下一个 Session 在 `exec` 中先取停放窗口（`officeParkedWindow`），找到就 `officeResumeWindow` 接管：释放停放时多留的一份视频引用（新会话 `initialize()` 已有自己的一份）、窗口模式 reconfigure 时 `SDL_SetWindowSize`、按 SDL 标志恢复 `m_IsFullScreen`，并推一个 `SDL_RENDER_DEVICE_RESET` 让事件循环创建解码器（复用窗口不会再收到 SHOWN）。
+- 释放：凡不会再有新会话接管的结束路径（取消、恢复次数用尽或不可重试、`officeNextSession` 返回空）都由 `OfficeRecovery.complete()` 调 `officeReleaseParkedWindow`：先销毁工具栏和遮罩，再 `SDL_DestroyWindow`、`SDL_QuitSubSystem(SDL_INIT_VIDEO)`，然后 `finishSegue` 回到工作台。停放期间 `StreamSegue` 不显示 Qt 窗口（`window.visible = !recovery.streamWindowParked()`）。
+- 平台：`parkingSupported()` 仅 macOS 为真（`parkedwindow_mac.mm`），其余平台 `parkedwindow_stub.cpp` 返回空，行为与上游一致。
+
+已知限制：遮罩下保留的是断线前最后一帧（或黑屏）；停放期间工具栏其他菜单仍能打开但不生效；reconfigure 重试失败后文字改为网络中断文案；恢复以失败或取消结束时，Qt 窗口可能在释放前短暂出现（与旧行为相同）。真实主机断网验收见 [VALIDATION.md](VALIDATION.md)。
+
 ## 安全边界
 
 - 弹窗由被控端用户会话中的 Sunshine 进程直接显示和处理，不新增本机或网络管理接口，不复用网页管理员密码。

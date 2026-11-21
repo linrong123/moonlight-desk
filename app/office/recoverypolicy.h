@@ -12,6 +12,8 @@ public:
     void connected(std::int64_t now) { connectedAt = now; }
     void cancel() { cancelled = true; }
     bool isRecovering() const { return attempts != 0; }
+    // Attempts used in the current episode; the reconnect overlay shows it.
+    int attempt() const { return attempts; }
 
     int nextDelay(std::int64_t now, bool eligible) {
         if (cancelled || !eligible) return -1;
