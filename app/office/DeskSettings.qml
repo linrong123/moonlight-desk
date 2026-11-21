@@ -422,7 +422,7 @@ Rectangle {
                     ComboBox {
                         objectName: "scrollSpeedBox"
                         width: 140
-                        model: ["慢", "中", "标准"]
+                        model: ["慢", "中", "快"]
                         currentIndex: page.prefs ? (page.prefs.scrollSpeed <= 50 ? 0 : (page.prefs.scrollSpeed <= 83 ? 1 : 2)) : 1
                         onActivated: function(index) { page.setScrollSpeed(index) }
                     }
@@ -437,7 +437,7 @@ Rectangle {
                     }
                 }
                 Rectangle { width: parent.width; height: 1; color: Style.border }
-                Note { text: "鼠标模式（本地指针 / 远端指针 / 相对）在桌面窗口工具栏切换，每台设备分别记住。滚轮速度“标准”为 Windows 默认每格约 3 行，“中”约 2 行，“慢”约 1 行。" }
+                Note { text: "鼠标模式（本地指针 / 远端指针 / 相对）在桌面窗口工具栏切换，每台设备分别记住。滚轮速度“快”与 Windows 默认相同，每格约 3 行；“中”约 2 行，“慢”约 1 行。" }
             }
 
             // 关于 ----------------------------------------------------------------

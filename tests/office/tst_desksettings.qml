@@ -170,10 +170,14 @@ TestCase {
     function test_scrollSpeed() {
         var box = control("scrollSpeedBox")
         compare(box.currentIndex, 1)
+        compare(box.count, 3)
+        compare(box.textAt(0), "慢")
+        compare(box.textAt(1), "中")
+        compare(box.textAt(2), "快")
         box.activated(0) // slow
         compare(fakePrefs.scrollSpeed, 33)
         compare(fakePrefs.saves, 1)
-        box.activated(2) // standard
+        box.activated(2) // fast
         compare(fakePrefs.scrollSpeed, 100)
         compare(fakePrefs.saves, 2)
         box.activated(1) // medium
