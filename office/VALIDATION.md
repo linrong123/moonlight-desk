@@ -216,7 +216,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 
 - 实现：macOS 自动恢复（可重试的网络中断、切换分辨率）期间保留 SDL 串流窗口，窗口内显示深色遮罩、转圈、状态文字与“断开”；重连成功遮罩消失，Qt 恢复页不出现。断开 / Esc / 关闭窗口取消恢复，旧会话清理完后关闭窗口回到工作台。设计见 [CONNECTION.md](CONNECTION.md#断线恢复窗口内重连macos)。Windows/Linux 走 `parkedwindow_stub.cpp`，行为不变；`RecoveryPolicy` 参数未改。
 - 本地验证：Windows 开发机没有 macOS/clang/Qt 工具链，未在本地编译或运行；仅做代码审读（信号顺序：清理时先停放、再排队发出 `sessionFinished`/`readyForDeletion`；`goto DispatchDeferredCleanup` 不跨越新增声明；工具栏空回调已有守卫）。
-- 自动测试（macOS CI，结果见下）：`office/tests/parkedwindow_test.cpp`（是否停放、遮罩文字三种状态与次数、窗口模式才调整大小、停放事件分类：QUIT/本窗口 CLOSE 取消、他窗口与输入丢弃、不取 `SDL_USEREVENT`），`tests/office/tst_recovery.qml` 新增 6 例（停放时 `streamWindowParked()` 为真且重连成功不释放窗口；未停放行为不变；最终结束不停放并释放；清理前取消、退避中取消、下一会话被拒都只释放一次），均接入 `office/macos/test.sh`。
+- 自动测试（macOS CI `Desk macOS` run 44869529709 通过，da382a7b，含 test.sh 与 Apple Silicon 打包，`parkedwindow_mac.mm` 编译无警告；上游 `Build` 工作流在本仓库全部 skipped，Windows/Linux 未经编译验证，那里只多了空实现 `parkedwindow_stub.cpp`）：`office/tests/parkedwindow_test.cpp`（是否停放、遮罩文字三种状态与次数、窗口模式才调整大小、停放事件分类：QUIT/本窗口 CLOSE 取消、他窗口与输入丢弃、不取 `SDL_USEREVENT`），`tests/office/tst_recovery.qml` 新增 6 例（停放时 `streamWindowParked()` 为真且重连成功不释放窗口；未停放行为不变；最终结束不停放并释放；清理前取消、退避中取消、下一会话被拒都只释放一次），均接入 `office/macos/test.sh`。
 
 ### 待实机验收
 
