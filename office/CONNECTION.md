@@ -86,7 +86,7 @@ Sunshine Desk 在未显式配置时，`lan_encryption_mode` 与 `wan_encryption_
 - 释放：凡不会再有新会话接管的结束路径（取消、恢复次数用尽或不可重试、`officeNextSession` 返回空）都由 `OfficeRecovery.complete()` 调 `officeReleaseParkedWindow`：先销毁工具栏和遮罩，再 `SDL_DestroyWindow`、`SDL_QuitSubSystem(SDL_INIT_VIDEO)`，然后 `finishSegue` 回到工作台。停放期间 `StreamSegue` 不显示 Qt 窗口（`window.visible = !recovery.streamWindowParked()`）。
 - 平台：`parkingSupported()` 仅 macOS 为真（`parkedwindow_mac.mm`），其余平台 `parkedwindow_stub.cpp` 返回空，行为与上游一致。
 
-已知限制：遮罩下保留的是断线前最后一帧（或黑屏）；停放期间工具栏其他菜单仍能打开但不生效；reconfigure 重试失败后文字改为网络中断文案；恢复以失败或取消结束时，Qt 窗口可能在释放前短暂出现（与旧行为相同）。真实主机断网验收见 [VALIDATION.md](VALIDATION.md)。
+已知限制：遮罩是 88% 不透明的黑色层，透出的底图取决于渲染器销毁后窗口残留的内容（断线前最后一帧或黑屏，都会被压暗），不保证保留画面；次数用尽的那一轮仍先显示重连遮罩，旧连接清理完才关窗；停放期间工具栏其他菜单仍能打开但不生效；reconfigure 重试失败后文字改为网络中断文案；恢复以失败或取消结束时，Qt 窗口可能在释放前短暂出现（与旧行为相同）。真实主机断网验收见 [VALIDATION.md](VALIDATION.md)。
 
 ## 安全边界
 
