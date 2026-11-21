@@ -6,6 +6,8 @@
 
 | 位置 | 职责与合并检查 |
 | --- | --- |
+| `app/office/scrollspeed.h` | 滚轮速度换算（`ScrollScaler`，仅依赖标准库）：每格 40/80/120，小数格累积、换向清零 |
+| `app/settings/streamingpreferences.*` | 新增 `scrollSpeed` 偏好（Q_PROPERTY，键名 `officescrollspeed`，默认 67）；合并上游时保留该字段与 save/reload 两行 |
 | `app/office/recoverypolicy.h` | 有界重连策略，使用单调时钟；主动退出不可恢复 |
 | `app/office/officestate.*` | 每主机偏好、已认证 serverinfo、幂等光标请求及有界队列；不能 HTTP 降级 |
 | `app/office/sessionhooks.cpp` | Session 小适配点，鼠标与分辨率应用、恢复实例创建；工具栏启动时传入主机名（`NvComputer::name`）并同步输入暂停状态 |
@@ -35,8 +37,8 @@
 | `app/gui/AppView.qml` / `appmodel.*` | 保留旧界面兼容路径；工作台独立请求服务端 Desktop，不过滤服务器应用目录 |
 | `app/gui/StreamSegue.qml` / `main.qml` | 恢复展示、取消、导航保护；非办公串流保留原路径 |
 | `app/streaming/session.*` | 回调错误分类、主动与远端断开区分、worker 清理后才 ready、Desktop 不 quit host app |
-| `app/streaming/input/input.h` | 鼠标模式切换接口，调用原有输入处理 |
-| `app/streaming/input/mouse.cpp` | 记录真正发给远端的鼠标按键；本地确认框只释放已按下的键，避免发送多余释放事件 |
+| `app/streaming/input/input.h` | 鼠标模式切换接口，调用原有输入处理；新增两个 `ScrollScaler` 成员（滚轮速度） |
+| `app/streaming/input/mouse.cpp` | 记录真正发给远端的鼠标按键；本地确认框只释放已按下的键，避免发送多余释放事件；滚轮经 `ScrollScaler` 按滚轮速度缩放，仅 SDL≥2.0.18 分支 |
 | `app/main.cpp` / `Info.plist` / `app.pro` | 独立应用/偏好标识，模块注册；不覆盖原版 |
 | `autoupdatechecker.cpp` | 禁用原版更新提示，避免安装错误发行包；办公版更新源尚未实现 |
 | `office/macos` / CI | 独立构建/测试/打包；上游总入口只在官方仓库运行 |

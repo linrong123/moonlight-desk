@@ -1,6 +1,7 @@
 #pragma once
 
 #include "settings/streamingpreferences.h"
+#include "office/scrollspeed.h"
 #include "backend/computermanager.h"
 
 #include "SDL_compat.h"
@@ -210,6 +211,8 @@ private:
     bool m_GamepadMouse;
     bool m_SwapMouseButtons;
     bool m_ReverseScrollDirection;
+    office::ScrollScaler m_VScrollScaler;
+    office::ScrollScaler m_HScrollScaler;
     bool m_SwapFaceButtons;
 
     bool m_NeedsManualCaptureOnLeave;
