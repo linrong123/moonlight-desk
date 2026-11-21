@@ -83,6 +83,7 @@ Rectangle {
     function setSysKeys(mode) { prefs.captureSysKeysMode = mode; save() }
     function setSwapButtons(on) { prefs.swapMouseButtons = on; save() }
     function setReverseScroll(on) { prefs.reverseScrollDirection = on; save() }
+    function setScrollSpeed(index) { prefs.scrollSpeed = [33, 67, 100][index]; save() }
 
     function goBack() {
         backRequested()
@@ -417,6 +418,16 @@ Rectangle {
                     }
                 }
                 SettingRow {
+                    label: "滚轮速度"
+                    ComboBox {
+                        objectName: "scrollSpeedBox"
+                        width: 140
+                        model: ["慢", "中", "标准"]
+                        currentIndex: page.prefs ? (page.prefs.scrollSpeed <= 50 ? 0 : (page.prefs.scrollSpeed <= 83 ? 1 : 2)) : 1
+                        onActivated: function(index) { page.setScrollSpeed(index) }
+                    }
+                }
+                SettingRow {
                     label: "反转滚轮方向"
                     divider: false
                     PrefSwitch {
@@ -426,7 +437,7 @@ Rectangle {
                     }
                 }
                 Rectangle { width: parent.width; height: 1; color: Style.border }
-                Note { text: "鼠标模式（本地指针 / 远端指针 / 相对）在桌面窗口工具栏切换，每台设备分别记住。" }
+                Note { text: "鼠标模式（本地指针 / 远端指针 / 相对）在桌面窗口工具栏切换，每台设备分别记住。滚轮速度“标准”为 Windows 默认每格约 3 行，“中”约 2 行，“慢”约 1 行。" }
             }
 
             // 关于 ----------------------------------------------------------------

@@ -26,6 +26,7 @@ TestCase {
         property int recommendedFullScreenMode: 1
         property bool swapMouseButtons: false
         property bool reverseScrollDirection: false
+        property int scrollSpeed: 67
         property int captureSysKeysMode: 0
         property int saves: 0
         function getDefaultBitrate(w, h, f, yuv444) {
@@ -52,6 +53,7 @@ TestCase {
         fakePrefs.videoCodecConfig = 0; fakePrefs.enableYUV444 = false
         fakePrefs.windowMode = 1; fakePrefs.recommendedFullScreenMode = 1
         fakePrefs.swapMouseButtons = false; fakePrefs.reverseScrollDirection = false
+        fakePrefs.scrollSpeed = 67
         fakePrefs.captureSysKeysMode = 0
         fakePrefs.saves = 0
         advancedSpy.clear(); backSpy.clear()
@@ -163,6 +165,19 @@ TestCase {
         toggle("reverseScrollSwitch")
         verify(fakePrefs.reverseScrollDirection)
         compare(fakePrefs.saves, 10)
+    }
+
+    function test_scrollSpeed() {
+        var box = control("scrollSpeedBox")
+        compare(box.currentIndex, 1)
+        box.activated(0) // slow
+        compare(fakePrefs.scrollSpeed, 33)
+        compare(fakePrefs.saves, 1)
+        box.activated(2) // standard
+        compare(fakePrefs.scrollSpeed, 100)
+        compare(fakePrefs.saves, 2)
+        box.activated(1) // medium
+        compare(fakePrefs.scrollSpeed, 67)
     }
 
     function test_advancedAndBack() {

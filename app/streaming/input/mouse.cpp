@@ -215,7 +215,10 @@ void SdlInputHandler::handleMouseWheelEvent(SDL_MouseWheelEvent* event)
         event->preciseY = SDL_clamp(event->preciseY, -1.0f, 1.0f);
 #endif
 
-        LiSendHighResScrollEvent((short)(event->preciseY * 120)); // WHEEL_DELTA
+        short delta = m_VScrollScaler.scale(event->preciseY); // office: scaled WHEEL_DELTA
+        if (delta != 0) {
+            LiSendHighResScrollEvent(delta);
+        }
     }
 
     if (event->preciseX != 0.0f) {
@@ -230,7 +233,10 @@ void SdlInputHandler::handleMouseWheelEvent(SDL_MouseWheelEvent* event)
         event->preciseX = SDL_clamp(event->preciseX, -1.0f, 1.0f);
 #endif
 
-        LiSendHighResHScrollEvent((short)(event->preciseX * 120)); // WHEEL_DELTA
+        short delta = m_HScrollScaler.scale(event->preciseX); // office: scaled WHEEL_DELTA
+        if (delta != 0) {
+            LiSendHighResHScrollEvent(delta);
+        }
     }
 #else
     if (event->y != 0) {

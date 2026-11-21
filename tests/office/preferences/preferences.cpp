@@ -20,6 +20,8 @@ int main(int argc, char** argv) {
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, temp.path());
     auto original = StreamingPreferences::get();
+    require(original->scrollSpeed == 67); // office default: wheel speed "medium"
+    original->scrollSpeed = 33;
     original->width = 2560;
     original->height = 1440;
     original->packetSize = 1024;
@@ -44,6 +46,8 @@ int main(int argc, char** argv) {
         QSettings persisted;
         require(persisted.value("width").toInt() == 2560);
         require(persisted.value("height").toInt() == 1440);
+        require(persisted.value("officescrollspeed").toInt() == 33);
+        require(copy->scrollSpeed == 33);
         QObject nextOwner;
         auto next = copy->cloneForSession(&nextOwner);
         require(next->width == 1920 && next->height == 1080);

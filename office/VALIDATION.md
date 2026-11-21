@@ -197,3 +197,14 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 旧版被控端（无 `OfficeClipboard`）菜单置灰并提示更新，不发请求。
 - 点工具栏按钮、打开统计浮窗不触发多余同步（日志中无多余的 pushing/pulled）。
 - 被控端 ZIP 控制台模式下的剪贴板读写。
+
+## 滚轮速度（2026-11-20，分支 `feat/scroll-speed`）
+
+- 实现：SDL3 cocoa 把普通鼠标滚轮的 deltaY 向上取整到至少一格，macOS 上又限制为 ±1，每个事件都是整整 120 的滚动量。设置页“键鼠”新增“滚轮速度”（慢 / 中 / 标准 = 每格 33% / 67% / 100%，即 40 / 80 / 120），默认“中”；`mouse.cpp` 仅在 SDL≥2.0.18 分支经 `ScrollScaler` 换算，结果为 0 不发送。
+- 自动测试（macOS CI `Desk macOS` run 44860606984 通过，含 test.sh 与 Apple Silicon 打包）：`office/tests/scrollspeed_test.cpp`（三档每格值、100% 与原行为一致、0 不改余数、小数格累积、换向清零、百分比越界与 short 饱和），`tests/office/tst_desksettings.qml`（默认选“中”、选择写入 33/67/100 并保存），`tests/office/preferences`（默认 67、保存读回、会话副本一致），均接入 `office/macos/test.sh`。
+
+### 待实机验收
+
+- 在 Windows 记事本、浏览器、资源管理器里分别用鼠标滚轮和触控板滚动，三档手感与每格行数（约 1 / 2 / 3 行）符合预期，触控板滑动流畅。
+- 反转滚轮方向与各档位组合方向正确；水平滚动正常。
+- 个别老式 Windows 程序在“慢”“中”档位下不响应小于一格的滚动量，需要时选“标准”。
