@@ -22,6 +22,9 @@ public:
     virtual void setStatistics(const char* summary, const char* details) = 0;
     // Opens or closes the floating statistics panel without sending an Action.
     virtual void setStatisticsVisible(bool visible) = 0;
+    // Rebinds the toolbar callback, for example while the window is kept
+    // through a reconnect (parkedwindow.h). Ignored once disconnected.
+    virtual void setActionHandler(std::function<void(Action, int, int)> action) { (void)action; }
 };
 std::unique_ptr<Toolbar> createToolbar(SDL_Window* window, int width, int height,
     MouseMode mode, std::function<void(Action, int, int)> action, bool hasDeviceManager = false);

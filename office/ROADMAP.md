@@ -40,6 +40,7 @@ Moonlight Desk（主控端）与 [Sunshine Desk](https://github.com/linrong123/s
 - [ ] 密码类剪贴板内容在 Windows 端不进入剪贴板历史与云剪贴板（主控端标记 concealed，被控端附加 `ExcludeClipboardContentFromMonitorProcessing`）
 - [ ] 文件传输
 - [x] 滚轮速度设置（慢 / 中 / 快，默认中；解决普通鼠标滚轮每格滚动过多；baccc1d2，实机手感待验收）
+- [ ] 窗口内重连（Mac）：断网重连与切换分辨率时保留串流窗口，窗口内显示重连遮罩与“断开”（分支 `feat/inwindow-reconnect`，真实主机断网验收待做）
 
 ## M4 远期
 

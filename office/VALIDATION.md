@@ -211,3 +211,18 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 - 在 Windows 记事本、浏览器、资源管理器里分别用鼠标滚轮和触控板滚动，三档手感与每格行数（约 1 / 2 / 3 行）符合预期，触控板滑动流畅。
 - 反转滚轮方向与各档位组合方向正确；水平滚动正常。
 - 个别老式 Windows 程序在“慢”“中”档位下不响应小于一格的滚动量，需要时选“快”（2026-11-21 起“标准”档更名为“快”，数值不变）。
+
+## 窗口内重连（2026-11-21，分支 `feat/inwindow-reconnect`）
+
+- 实现：macOS 自动恢复（可重试的网络中断、切换分辨率）期间保留 SDL 串流窗口，窗口内显示深色遮罩、转圈、状态文字与“断开”；重连成功遮罩消失，Qt 恢复页不出现。断开 / Esc / 关闭窗口取消恢复，旧会话清理完后关闭窗口回到工作台。设计见 [CONNECTION.md](CONNECTION.md#断线恢复窗口内重连macos)。Windows/Linux 走 `parkedwindow_stub.cpp`，行为不变；`RecoveryPolicy` 参数未改。
+- 本地验证：Windows 开发机没有 macOS/clang/Qt 工具链，未在本地编译或运行；仅做代码审读（信号顺序：清理时先停放、再排队发出 `sessionFinished`/`readyForDeletion`；`goto DispatchDeferredCleanup` 不跨越新增声明；工具栏空回调已有守卫）。
+- 自动测试（macOS CI `Desk macOS` run 44869529709 通过，da382a7b，含 test.sh 与 Apple Silicon 打包，`parkedwindow_mac.mm` 编译无警告；上游 `Build` 工作流在本仓库全部 skipped，Windows/Linux 未经编译验证，那里只多了空实现 `parkedwindow_stub.cpp`）：`office/tests/parkedwindow_test.cpp`（是否停放、遮罩文字三种状态与次数、窗口模式才调整大小、停放事件分类：QUIT/本窗口 CLOSE 取消、他窗口与输入丢弃、不取 `SDL_USEREVENT`），`tests/office/tst_recovery.qml` 新增 6 例（停放时 `streamWindowParked()` 为真且重连成功不释放窗口；未停放行为不变；最终结束不停放并释放；清理前取消、退避中取消、下一会话被拒都只释放一次），均接入 `office/macos/test.sh`。
+
+### 待实机验收
+
+- 真实主机断网验收：待验收。被控端断网/拔线后窗口不关闭，遮罩显示“网络中断，正在重新连接…（第 N 次）”，次数递增；恢复网络后遮罩消失、画面恢复、键鼠正常、窗口大小位置与全屏状态不变。
+- 切换分辨率：普通窗口按新分辨率调整大小；全屏（独立空间）与最大化窗口保持尺寸；遮罩显示“正在切换分辨率…”。
+- 每次连接确认开启时，恢复超过 120 秒宽限后遮罩显示“正在等待被控端确认…”；被控端拒绝/超时后窗口关闭并提示原因。
+- 遮罩上的“断开”、Esc、红色工具栏“断开”、窗口关闭按钮都能取消并回到工作台，不再自动重连；恢复次数用尽后窗口关闭并回到工作台。
+- 停放期间工作台“显示窗口”能把停放窗口带到前台；多台主机同时恢复互不影响。
+- 遮罩在浅色/深色系统外观下的样式；遮罩下是最后一帧还是黑屏；工具栏是否闪烁。

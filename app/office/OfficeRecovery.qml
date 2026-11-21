@@ -13,6 +13,12 @@ Item {
     signal retryReady(var nextSession)
     signal completed()
 
+    // macOS keeps the stream window with a reconnect overlay while recovering
+    // (Session::officeWindowParked); the Qt window then stays hidden.
+    function streamWindowParked() {
+        return recovering && session && session.officeWindowParked ? session.officeWindowParked() : false
+    }
+
     function finished() {
         if (finishedSeen || completedSeen)
             return
@@ -39,6 +45,10 @@ Item {
         completedSeen = true
         retryTimer.stop()
         recovering = false
+        // No further session will adopt a kept window: close it before the
+        // workbench returns.
+        if (session && session.officeReleaseParkedWindow)
+            session.officeReleaseParkedWindow()
         session = null
         completed()
     }

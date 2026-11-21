@@ -31,7 +31,11 @@ Item {
         function onStop() {
             streamSegue.cancelDeskClose()
         }
-        function onFocus() { window.show(); window.raise(); window.requestActivate() }
+        function onFocus() {
+            if (session && session.officeFocusParkedWindow && session.officeFocusParkedWindow())
+                return
+            window.show(); window.raise(); window.requestActivate()
+        }
     }
 
     Keys.forwardTo: officeMode ? [recovery] : []
@@ -92,7 +96,7 @@ Item {
             // legacy profile requested host-app shutdown on disconnect.
             stageText = qsTr("正在退出桌面…")
             sessionFinished(0)
-            window.visible = true
+            window.visible = !recovery.streamWindowParked()
             return
         }
 
@@ -114,7 +118,7 @@ Item {
                 stageSpinner.visible = true
                 stageLabel.visible = true
                 hintText.visible = false
-                window.visible = true
+                window.visible = !recovery.streamWindowParked()
             }
             return
         }
@@ -180,6 +184,7 @@ Item {
         session.quitStarting.connect(quitStarting)
         session.sessionFinished.connect(sessionFinished)
         session.readyForDeletion.connect(sessionReadyForDeletion)
+        session.officeRecoveryCancelRequested.connect(cancelDeskClose)
     }
 
     Office.OfficeRecovery {
