@@ -39,7 +39,7 @@ Moonlight Desk（主控端）与 [Sunshine Desk](https://github.com/linrong123/s
 - [x] 文本剪贴板同步（客户端 26069d62，被控端 71236fc1，2026-11-20 实机验收）
 - [ ] 密码类剪贴板内容在 Windows 端不进入剪贴板历史与云剪贴板（主控端标记 concealed，被控端附加 `ExcludeClipboardContentFromMonitorProcessing`）
 - [ ] 文件传输
-- [ ] 滚轮速度设置（慢 / 中 / 标准，默认中；解决普通鼠标滚轮每格滚动过多）
+- [x] 滚轮速度设置（慢 / 中 / 标准，默认中；解决普通鼠标滚轮每格滚动过多；baccc1d2，实机手感待验收）
 
 ## M4 远期
 
