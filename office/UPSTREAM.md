@@ -28,6 +28,7 @@
 | `app/gui/NavigableMessageDialog.qml` / `ErrorMessageDialog.qml` | 办公模式下隐藏图标、按钮改中文（确定/取消/帮助），错误框不显示“帮助”按钮；非办公路径不变 |
 | `app/gui/StreamSegue.qml` / `CliStartStreamSegue.qml` / `QuitSegue.qml` | 办公模式叠加 `DeskProgress` 过渡页（中文阶段文字原样显示，上游英文阶段统一为“正在连接远程桌面…”/“正在退出…”），原 Row 置透明但保留，状态与取消逻辑不变；`StreamSegue` 的“取消恢复”改用 `DeskButton`；`CliStartStreamSegue` 的“关闭正在运行的应用”提示改中文 |
 | `app/qml.qrc` | 登记新增的 `office/*.qml` 与 `desklogic.js`、`deskstyle.js` |
+| `app/moonlight.ico`、`app/moonlight.icns`、`app/moonlight_wix.png`、`app/res/moonlight.svg`、`app/deploy/steamlink/moonlight.png` | 应用图标整体替换为办公版原创图标（[ICONS.md](ICONS.md)，源文件在 `office/icons/`），文件名与格式不变。合并上游时这些文件冲突一律保留我方版本；`scripts/generate-ico.sh` 仍指向 `moonlight.svg`，但不要用它重新生成（见 ICONS.md） |
 | `app/office/desksessions.*` / `sessionbridge.*` | 每主机独立进程；用户权限本地 IPC；SDL 阻塞 Qt 时仍能取消和回传状态；状态白名单含 `approval`/`denied`/`expired`，工作台据此显示等待确认并可“断开 / 取消” |
 | `app/backend/computermanager.*` / `gui/computermodel.*` | 仅管理进程写设备列表；启动前有界持久化等待；UUID role/get、初始化模型重置信号 |
 | `app/gui/CliStartStreamSegue.qml` | 复用原有 CLI 发现、配对验证、Desktop 启动；接入状态和取消 |
