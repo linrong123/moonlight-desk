@@ -242,7 +242,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 
 - 问题：Mac 经 Tailscale 长途直连（IPv6）连接时提示“Request timed out (Error 4)”。客户端日志里是连接前那次已认证 HTTPS `serverinfo` 被中止（`OperationCanceledError`）。当时单次超时 3 秒、不重试。首次连接失败又不进入自动恢复（`retryable` 要求 `everConnected`），一次 TLS 握手丢包就整次启动失败。当晚实测这条链路：Mac ping 主机 Tailscale 地址 300 包丢 31.7%，RTT 约 154 ms；UDP 单向探测，主机到 Mac 丢 16.4%。直连 IPv4 打洞不通，强制走 IPv4 不可行。
 - 修复：`serverinfo` 每次超时 5 秒，网络层失败按 0.5、1 秒退避，最多共试 3 次，最坏约 16.5 秒。主机返回的结果（含认证失败）不重试。退避中用户断开则静默返回。策略与光标请求共用 `app/office/cursorretry.h`。
-- 自动测试：`office/tests/cursorretry_test.cpp` 新增 serverinfo 次数上限与最坏总时长断言，结果以 macOS CI 为准。
+- 自动测试：`office/tests/cursorretry_test.cpp` 新增 serverinfo 次数上限与最坏总时长断言。Windows 开发机没有编译器，以 macOS CI 为准：`Desk macOS` run 45033962375 通过（998865a8，含 `cursor retry tests passed` 与 Apple Silicon 打包）。该构建已装到 MacBook（SHA256 与 `codesign --verify --deep --strict` 通过）。
 
 ### 待实机验收
 
