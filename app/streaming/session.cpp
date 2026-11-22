@@ -1656,7 +1656,7 @@ bool Session::startConnectionAsync()
         NvHTTP http(m_Computer);
         int runningApp = m_Computer->currentGameId;
         if (m_Office) {
-            m_Office->prepareConnection(http);
+            if (!m_Office->prepareConnection(http)) return false;
             runningApp = m_Office->currentApp;
             if (runningApp != 0 && runningApp != m_App.id) {
                 throw GfeHttpResponseException(409, "Another application is running; automatic takeover was stopped");

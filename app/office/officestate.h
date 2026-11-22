@@ -78,7 +78,8 @@ struct State {
     void saveResolution(int width, int height);
     void saveMouse(MouseMode mode);
     void saveClipboard(bool enabled);
-    void prepareConnection(NvHTTP& http);
+    // False when the user stopped the connection while a retry was pending.
+    bool prepareConnection(NvHTTP& http);
     void queueDisplayScale(int percent = 0);
     DisplayScaleSnapshot displayScaleSnapshot();
     // Transport failures are retried with backoff unless retry is false
