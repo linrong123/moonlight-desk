@@ -87,11 +87,29 @@ void State::saveClipboard(bool enabled) {
     settings.setValue("clipboard", enabled);
 }
 
-void State::prepareConnection(NvHTTP& http) {
+bool State::prepareConnection(NvHTTP& http) {
     // Never downgrade authentication during recovery. getServerInfo() has an
     // upstream HTTP fallback; use the already-paired HTTPS endpoint directly.
-    const auto xml = http.openConnectionToString(http.m_BaseUrlHttps,
-        "serverinfo", {}, 3000, NvHTTP::NVLL_ERROR);
+    // serverinfo is a read-only GET, so transport failures are retried
+    // (cursorretry.h); any host reply, including 401, is final.
+    QString xml;
+    for (int failed = 0;;) {
+        try {
+            xml = http.openConnectionToString(http.m_BaseUrlHttps,
+                "serverinfo", {}, kServerInfoAttemptTimeoutMs, NvHTTP::NVLL_ERROR);
+            break;
+        } catch (const QtNetworkReplyException& e) {
+            int delay = cursorRetryDelay(++failed, retryableNetworkError(e.getError()),
+                                         userStopped, kServerInfoMaxAttempts);
+            if (delay < 0) {
+                if (userStopped) return false;
+                throw;
+            }
+            qInfo() << "serverinfo attempt" << failed << "failed; retrying in" << delay << "ms";
+            for (; delay > 0 && !userStopped; delay -= 100) QThread::msleep(100);
+            if (userStopped) return false;
+        }
+    }
     NvHTTP::verifyResponseStatus(xml);
     if (NvHTTP::getXmlString(xml, "PairStatus") != "1") {
         throw GfeHttpResponseException(401, "Device pairing is required");
@@ -113,6 +131,7 @@ void State::prepareConnection(NvHTTP& http) {
     peerAddress = http.address();
     peerPort = http.httpsPort();
     peerCertificate = http.serverCert();
+    return true;
 }
 
 State::DisplayScaleSnapshot State::displayScaleSnapshot() {

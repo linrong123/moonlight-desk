@@ -20,5 +20,12 @@ int main() {
     int total = office::kCursorAttemptTimeoutMs * office::kCursorMaxAttempts;
     for (int failed = 1; cursorRetryDelay(failed, true, false) > 0; ++failed) total += cursorRetryDelay(failed, true, false);
     assert(total == 15500);
+    // serverinfo at launch: 3 attempts, worst case 16.5 s.
+    assert(cursorRetryDelay(2, true, false, office::kServerInfoMaxAttempts) == 1000);
+    assert(cursorRetryDelay(3, true, false, office::kServerInfoMaxAttempts) == -1);
+    total = office::kServerInfoAttemptTimeoutMs * office::kServerInfoMaxAttempts;
+    for (int failed = 1; cursorRetryDelay(failed, true, false, office::kServerInfoMaxAttempts) > 0; ++failed)
+        total += cursorRetryDelay(failed, true, false, office::kServerInfoMaxAttempts);
+    assert(total == 16500);
     std::cout << "cursor retry tests passed\n";
 }
