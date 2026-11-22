@@ -1328,7 +1328,7 @@ private:
             // This is best effort, on the cleanup worker, before recovery can start.
             if (state.cursorSupported && state.cursorGeneration != 0) {
                 state.queueCursor(state.peerAddress, state.peerPort,
-                    state.peerCertificate, state.trueUid, true);
+                    state.peerCertificate, state.trueUid, true, false);
             }
             state.cursorQueue.waitForDone();
         }

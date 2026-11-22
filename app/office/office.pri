@@ -1,5 +1,5 @@
 HEADERS += $$PWD/parkedwindow.h $$PWD/parkedwindowlogic.h
-HEADERS += $$PWD/scrollspeed.h $$PWD/recoverypolicy.h $$PWD/officestate.h $$PWD/toolbar.h $$PWD/types.h
+HEADERS += $$PWD/scrollspeed.h $$PWD/recoverypolicy.h $$PWD/cursorretry.h $$PWD/officestate.h $$PWD/toolbar.h $$PWD/types.h
 SOURCES += $$PWD/officestate.cpp $$PWD/sessionhooks.cpp $$PWD/sessionpreferences.cpp \
     $$PWD/desksessions.cpp $$PWD/sessionbridge.cpp
 HEADERS += $$PWD/desksessions.h $$PWD/sessionbridge.h
