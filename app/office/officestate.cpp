@@ -1,7 +1,10 @@
 #include "officestate.h"
 #include "parkedwindow.h"
+#include "cursorretry.h"
 #include <Limelight.h>
 #include <QSettings>
+#include <QThread>
+#include <QDebug>
 #include <QCryptographicHash>
 #include <chrono>
 #include <algorithm>
@@ -183,7 +186,7 @@ void State::queueDisplayScale(int percent) {
 }
 
 void State::queueCursor(const NvAddress& address, uint16_t port,
-                        const QSslCertificate& cert, bool trueUid, bool visible) {
+                        const QSslCertificate& cert, bool trueUid, bool visible, bool retry) {
     if (!cursorSupported) { cursorStatus = -1; return; }
     unsigned generation;
     {
@@ -192,16 +195,29 @@ void State::queueCursor(const NvAddress& address, uint16_t port,
         cursorStatus = 0;
     }
     cursorQueue.clear(); // At most one in-flight and one latest pending request.
-    cursorQueue.start(QRunnable::create([this, address, port, cert, trueUid, visible, generation] {
-        int result;
-        try {
-            NvHTTP http(address, port, cert, trueUid);
-            auto xml = http.openConnectionToString(http.m_BaseUrlHttps,
-                "office/cursor", visible ? "visible=1" : "visible=0", 2000, NvHTTP::NVLL_ERROR);
-            NvHTTP::verifyResponseStatus(xml);
-            result = NvHTTP::getXmlString(xml, "cursorVisible") == (visible ? "1" : "0") ? 1 : -2;
-        } catch (const std::exception&) {
-            result = -2;
+    cursorQueue.start(QRunnable::create([this, address, port, cert, trueUid, visible, retry, generation] {
+        const int maxAttempts = retry ? kCursorMaxAttempts : 1;
+        int result = -2;
+        for (int failed = 0;;) {
+            bool retryable = false;
+            try {
+                NvHTTP http(address, port, cert, trueUid);
+                auto xml = http.openConnectionToString(http.m_BaseUrlHttps,
+                    "office/cursor", visible ? "visible=1" : "visible=0",
+                    kCursorAttemptTimeoutMs, NvHTTP::NVLL_ERROR);
+                NvHTTP::verifyResponseStatus(xml);
+                result = NvHTTP::getXmlString(xml, "cursorVisible") == (visible ? "1" : "0") ? 1 : -2;
+                break;
+            } catch (const QtNetworkReplyException& e) {
+                retryable = retryableNetworkError(e.getError());
+            } catch (const std::exception&) {
+            }
+            int delay = cursorRetryDelay(++failed, retryable, cursorGeneration != generation, maxAttempts);
+            if (delay < 0) break;
+            qInfo() << "office/cursor attempt" << failed << "failed; retrying in" << delay << "ms";
+            // Sleep in slices so a newer request or session cleanup is not held up.
+            for (; delay > 0 && cursorGeneration == generation; delay -= 100) QThread::msleep(100);
+            if (cursorGeneration != generation) return;
         }
         std::lock_guard<std::mutex> lock(cursorResultMutex);
         if (cursorGeneration == generation) cursorStatus = result;

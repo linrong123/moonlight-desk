@@ -81,8 +81,10 @@ struct State {
     void prepareConnection(NvHTTP& http);
     void queueDisplayScale(int percent = 0);
     DisplayScaleSnapshot displayScaleSnapshot();
+    // Transport failures are retried with backoff unless retry is false
+    // (session cleanup must not be delayed).
     void queueCursor(const NvAddress& address, uint16_t port,
-                     const QSslCertificate& cert, bool trueUid, bool visible);
+                     const QSslCertificate& cert, bool trueUid, bool visible, bool retry = true);
 
     // Clipboard hooks, UI thread only (clipboardhooks.cpp).
     void clipboardStart(Toolbar* toolbar, bool focused);
