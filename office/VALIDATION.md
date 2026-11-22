@@ -231,7 +231,7 @@ Mac 官方 Moonlight 保持独立。配套 Sunshine Desk 已通过独立 ZIP 目
 
 - 问题：本地光标模式下画面里又出现远端光标。客户端日志显示，会话或重连开始时那次 `office/cursor?visible=0` 请求超时了：当时超时设为 2 秒且不重试，链路是 Tailscale 长途直连，RTT 约 155 ms，空闲丢包约 7.5%。请求失败后 `cursorStatus=-2`，界面显示“远端光标同步失败；暂用本地光标”，主机就一直在画面里合成光标。频繁断线重连让每次会话都多了一次失败机会。
 - 修复：每次请求超时 3 秒。网络层失败时按 0.5、1、2 秒退避，最多共试 4 次，最坏约 15.5 秒。主机返回的结果不重试。新请求或会话清理会立即打断正在进行的重试，清理时的恢复请求只试 1 次。详见 [UPSTREAM.md](UPSTREAM.md) 光标协议一节。
-- 自动测试：`office/tests/cursorretry_test.cpp` 覆盖退避序列、次数上限、主机结果不重试、被新请求打断、清理只试 1 次和最坏总时长，已接入 `office/macos/test.sh`。Windows 开发机没有编译器，结果以 macOS CI 为准。
+- 自动测试：`office/tests/cursorretry_test.cpp` 覆盖退避序列、次数上限、主机结果不重试、被新请求打断、清理只试 1 次和最坏总时长，已接入 `office/macos/test.sh`。Windows 开发机没有编译器，结果以 macOS CI 为准：`Desk macOS` run 45024068200 通过（a1ac8ba6，含 test.sh 中的 `cursor retry tests passed` 与 Apple Silicon 打包）。
 
 ### 待实机验收
 
